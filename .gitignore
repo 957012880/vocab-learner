@@ -23,3 +23,6 @@ scripts/gen-admin.cjs
 
 # 项目记忆（不入库）
 .workbuddy/
+
+# 本地开发密钥（不要提交）
+.dev.vars
