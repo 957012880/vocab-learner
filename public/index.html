@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>单词书库 | Vocab Learner</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- ============ 顶部导航 ============ -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <span class="nav-logo">📚</span>
+    <span class="nav-title">单词书库</span>
+  </div>
+  <div class="nav-actions">
+    <div id="nav-user" class="nav-user hidden">
+      <span id="nav-username" class="nav-username"></span>
+      <span id="nav-role" class="badge badge-admin hidden">管理员</span>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">退出</button>
+    </div>
+    <button id="nav-login-btn" class="btn btn-primary btn-sm" onclick="showAuthModal('login')">登录</button>
+  </div>
+</nav>
+
+<!-- ============ 欢迎页 ============ -->
+<section id="welcome-section" class="section section-hero">
+  <div class="hero-content">
+    <h1 class="hero-title">背单词，从一本书开始 📖</h1>
+    <p class="hero-desc">词书浏览 · 点击看释义 · 标记已掌握 · 进度自动追踪</p>
+    <div class="hero-actions">
+      <button class="btn btn-primary btn-lg" onclick="showAuthModal('register')">免费注册</button>
+      <button class="btn btn-outline btn-lg" onclick="startGuestMode()">游客浏览</button>
+    </div>
+    <p class="hero-note">游客模式下可浏览词书，但「已掌握」进度不会保存（需登录）</p>
+  </div>
+</section>
+
+<!-- ============ 主应用 ============ -->
+<div id="app-section" class="hidden">
+
+  <!-- 词书列表视图 -->
+  <section id="view-books">
+    <div class="section-head">
+      <h2 class="section-title">全部词书</h2>
+      <button id="import-book-btn" class="btn btn-primary btn-sm hidden" onclick="showImportModal()">＋ 导入我的单词</button>
+    </div>
+    <div id="books-grid" class="books-grid">
+      <p class="empty-hint">加载中…</p>
+    </div>
+  </section>
+
+  <!-- 词书详情视图 -->
+  <section id="view-book" class="hidden">
+    <div class="book-detail-head">
+      <button class="btn btn-ghost btn-sm" onclick="backToBooks()">← 返回词书</button>
+      <h2 id="book-title" class="book-detail-title"></h2>
+    </div>
+
+    <div class="book-progress">
+      <div class="book-progress-track"><div id="book-progress-fill" class="book-progress-fill"></div></div>
+      <span id="book-progress-text" class="book-progress-text">0 / 0</span>
+    </div>
+
+    <div class="study-toolbar">
+      <span class="study-toolbar-label">练习模式：</span>
+      <button class="btn btn-outline btn-sm" onclick="startQuiz()">📝 选择题测试</button>
+      <button class="btn btn-outline btn-sm" onclick="startSpell()">⌨️ 拼写练习</button>
+    </div>
+
+    <div class="tab-bar">
+      <button class="tab active" data-tab="all" onclick="switchWordTab('all')">全部 <span id="cnt-all" class="tab-count">0</span></button>
+      <button class="tab" data-tab="mastered" onclick="switchWordTab('mastered')">已掌握 <span id="cnt-mastered" class="tab-count">0</span></button>
+      <button class="tab" data-tab="unknown" onclick="switchWordTab('unknown')">未掌握 <span id="cnt-unknown" class="tab-count">0</span></button>
+    </div>
+
+    <div id="complete-banner" class="complete-banner hidden">🎉 太棒了，你已掌握这本书的所有单词！</div>
+
+    <div id="word-list" class="word-list"></div>
+    <div id="word-list-empty" class="empty-hint hidden">这个分类下还没有单词</div>
+  </section>
+
+  <!-- 练习模式（选择题 / 拼写） -->
+  <section id="view-study" class="hidden">
+    <div class="book-detail-head">
+      <button class="btn btn-ghost btn-sm" onclick="closeStudy()">← 返回词书</button>
+      <h2 id="study-title" class="book-detail-title"></h2>
+    </div>
+    <div id="study-body" class="study-body"></div>
+  </section>
+
+</div>
+
+<!-- ============ 登录/注册弹窗 ============ -->
+<div id="auth-modal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeAuthModal()"></div>
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeAuthModal()">✕</button>
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-auth="login" onclick="switchAuthTab('login')">登录</button>
+      <button class="auth-tab" data-auth="register" onclick="switchAuthTab('register')">注册</button>
+    </div>
+    <form id="login-form" class="auth-form" onsubmit="doLogin(event)">
+      <input type="text" class="input" id="login-username" placeholder="用户名或邮箱" required>
+      <input type="password" class="input" id="login-password" placeholder="密码" required>
+      <button type="submit" class="btn btn-primary btn-block">登录</button>
+    </form>
+    <form id="register-form" class="auth-form hidden" onsubmit="doRegister(event)">
+      <input type="text" class="input" id="reg-username" placeholder="用户名 (3-20字符)" required minlength="3" maxlength="20">
+      <input type="email" class="input" id="reg-email" placeholder="邮箱" required>
+      <input type="password" class="input" id="reg-password" placeholder="密码 (至少6位)" required minlength="6">
+      <button type="submit" class="btn btn-primary btn-block">注册</button>
+    </form>
+    <div id="auth-error" class="auth-error hidden"></div>
+  </div>
+</div>
+
+<!-- ============ 导入单词弹窗 ============ -->
+<div id="import-modal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeImportModal()"></div>
+  <div class="modal-content modal-wide">
+    <button class="modal-close" onclick="closeImportModal()">✕</button>
+    <h3 class="modal-h">导入我的单词</h3>
+    <input type="text" class="input" id="import-name" placeholder="词书名，如：我的考研词汇" style="margin-bottom:10px">
+    <textarea id="import-text" class="import-textarea" placeholder="支持两种格式：&#10;&#10;格式一（JSON）：&#10;[{&quot;word&quot;:&quot;apple&quot;,&quot;meaning&quot;:&quot;苹果&quot;,&quot;phonetic&quot;:&quot;/ˈæpl/&quot;,&quot;example&quot;:&quot;I eat an apple.&quot;}, ...]&#10;&#10;格式二（CSV，首行标题）：&#10;word,meaning,phonetic,example&#10;apple,苹果,/ˈæpl/,I eat an apple."></textarea>
+    <div class="import-actions">
+      <button class="btn btn-ghost" onclick="closeImportModal()">取消</button>
+      <button class="btn btn-primary" onclick="doImport()">导入</button>
+    </div>
+    <div id="import-error" class="auth-error hidden"></div>
+    <div id="import-loading" class="import-loading hidden">导入中…</div>
+  </div>
+</div>
+
+<!-- ============ Toast ============ -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

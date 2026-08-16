@@ -1,0 +1,17 @@
+{
+  "name": "vocab-learner",
+  "version": "1.0.0",
+  "description": "单词学习应用 - Cloudflare Pages + D1",
+  "scripts": {
+    "dev": "npx wrangler pages dev public --local --d1 DB",
+    "deploy": "npx wrangler pages deploy public",
+    "db:init": "npx wrangler d1 execute vocab-db --file=./schema.sql --remote",
+    "db:init:local": "npx wrangler d1 execute vocab-db --file=./schema.sql --local",
+    "db:seed": "npx wrangler d1 execute vocab-db --file=./scripts/seed.sql --remote",
+    "db:seed:local": "npx wrangler d1 execute vocab-db --file=./scripts/seed.sql --local",
+    "db:seed:parts": "node scripts/seed-parts.cjs"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

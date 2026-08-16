@@ -1,0 +1,17 @@
+# 依赖
+node_modules/
+
+# 大体积/可再生成数据
+scripts/.tmp/
+scripts/seed.sql
+scripts/seed.old.sql
+scripts/seed.good.sql
+scripts/*.log
+
+# 本地/临时
+.fill
+*.log
+.DS_Store
+
+# 项目记忆（不入库）
+.workbuddy/

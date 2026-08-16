@@ -1,0 +1,520 @@
+// ============================================================
+// 主交互逻辑 — 词书浏览 / 点击看释义 / 标记已掌握 / 用户导入
+// 学习逻辑参照 remix-words-funny：默认隐藏释义，点击展开；标记已掌握；
+// 以「全部 / 已掌握 / 未掌握」组织，未掌握清空即掌握整本书。
+// ============================================================
+
+const App = {
+  isGuest: false,
+  isAdmin: false,
+  books: [],
+  book: null,            // 当前词书 { slug, name, total, words:[{slug,word,pos,phonetic_us,phonetic_uk,meaning,example,status}] }
+  wordTab: 'all',        // all | mastered | unknown
+  revealed: new Set(),   // 当前已展开释义的 word slug
+};
+
+// ---------------- 工具 ----------------
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.add('hidden'), 2200);
+}
+function speak(text) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US'; u.rate = 0.9;
+  window.speechSynthesis.speak(u);
+}
+// 游客模式下本地保存状态
+function guestStatusGet() { try { return JSON.parse(localStorage.getItem('vocab_guest_status') || '{}'); } catch { return {}; } }
+function guestStatusSet(map) { localStorage.setItem('vocab_guest_status', JSON.stringify(map)); }
+
+// ---------------- 视图切换 ----------------
+function showApp() { document.getElementById('welcome-section')?.classList.add('hidden'); document.getElementById('app-section')?.classList.remove('hidden'); }
+function showWelcome() { document.getElementById('welcome-section')?.classList.remove('hidden'); document.getElementById('app-section')?.classList.add('hidden'); }
+function showViewBooks() { document.getElementById('view-books').classList.remove('hidden'); document.getElementById('view-book').classList.add('hidden'); }
+function showViewBook() { document.getElementById('view-books').classList.add('hidden'); document.getElementById('view-book').classList.remove('hidden'); }
+
+function startGuestMode() { App.isGuest = true; showApp(); loadBooks(); showToast('游客模式：可浏览词书，但进度不保存（建议注册）'); }
+
+// ---------------- 词书列表 ----------------
+async function loadBooks() {
+  const grid = document.getElementById('books-grid');
+  grid.innerHTML = '<p class="empty-hint">加载中…</p>';
+  const res = await API.getBooks();
+  if (!res.ok) { grid.innerHTML = `<p class="empty-hint">${res.data.error || '加载失败，请确认已部署后端并导入词库'}</p>`; return; }
+  App.books = res.data.books || [];
+  renderBooks();
+}
+
+function renderBooks() {
+  const grid = document.getElementById('books-grid');
+  if (!App.books.length) { grid.innerHTML = '<p class="empty-hint">暂无词书，登录后可导入你自己的单词</p>'; return; }
+  grid.innerHTML = App.books.map(b => {
+    const pct = b.wordCount ? Math.round((b.masteredCount / b.wordCount) * 100) : 0;
+    const cover = b.cover
+      ? `<img class="book-cover" src="${escapeAttr(b.cover)}" alt="" onerror="this.outerHTML='<div class=&quot;book-cover-fallback&quot;>📘</div>'">`
+      : '<div class="book-cover-fallback">📘</div>';
+    return `
+      <div class="book-card">
+        ${cover}
+        <div class="book-body">
+          <div class="book-name">${escapeHtml(b.name)}</div>
+          <div class="book-mini-progress"><div class="book-mini-fill" style="width:${pct}%"></div></div>
+          <div class="book-meta"><span>${b.wordCount} 词</span><span>${pct}% 已掌握</span></div>
+          <button class="btn btn-primary btn-sm" onclick="openBook('${escapeAttr(b.slug)}')">开始学习</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ---------------- 打开词书 ----------------
+async function openBook(slug) {
+  showViewBook();
+  document.getElementById('word-list').innerHTML = '<p class="empty-hint">加载单词中…</p>';
+  App.revealed = new Set();
+  App.book = { slug, name: slug, total: 0, words: [] };
+
+  // 分页拉取全部单词
+  let offset = 0, limit = 1000, all = [];
+  while (true) {
+    const res = await API.getBookWords(slug, offset, limit);
+    if (!res.ok) { document.getElementById('word-list').innerHTML = `<p class="empty-hint">${res.data.error || '加载失败'}</p>`; return; }
+    App.book.name = res.data.book?.name || slug;
+    App.book.total = res.data.total || 0;
+    all = all.concat(res.data.words || []);
+    if (res.data.words.length < limit) break;
+    offset += limit;
+    if (offset > 50000) break; // 安全上限
+  }
+  // 游客模式：把本地保存的已掌握状态叠加回去（服务端无 userId，默认返回 new）
+  if (!API.isLoggedIn()) {
+    const g = guestStatusGet();
+    all = all.map(w => ({ ...w, status: g[w.slug] || w.status }));
+  }
+  App.book.words = all;
+  document.getElementById('book-title').textContent = App.book.name;
+  App.wordTab = 'all';
+  document.querySelectorAll('#view-book .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'all'));
+  renderBook();
+}
+
+function renderBook() {
+  const b = App.book; if (!b) return;
+  const words = b.words;
+  const mastered = words.filter(w => w.status === 'mastered').length;
+  const unknown = words.length - mastered;
+  const pct = words.length ? Math.round((mastered / words.length) * 100) : 0;
+
+  document.getElementById('book-progress-fill').style.width = pct + '%';
+  document.getElementById('book-progress-text').textContent = `${mastered} / ${words.length}`;
+  document.getElementById('cnt-all').textContent = words.length;
+  document.getElementById('cnt-mastered').textContent = mastered;
+  document.getElementById('cnt-unknown').textContent = unknown;
+  document.getElementById('complete-banner').classList.toggle('hidden', !(words.length > 0 && unknown === 0));
+
+  const list = (App.wordTab === 'all') ? words
+    : (App.wordTab === 'mastered') ? words.filter(w => w.status === 'mastered')
+    : words.filter(w => w.status !== 'mastered');
+
+  const box = document.getElementById('word-list');
+  document.getElementById('word-list-empty').classList.toggle('hidden', list.length > 0);
+  box.innerHTML = list.map(w => {
+    const revealed = App.revealed.has(w.slug);
+    const isMastered = w.status === 'mastered';
+    const phonetic = w.phonetic_us || w.phonetic_uk || '';
+    return `
+      <div class="word-row ${isMastered ? 'mastered' : ''}" data-slug="${escapeAttr(w.slug)}">
+        <div class="word-main" onclick="toggleReveal('${escapeAttr(w.slug)}')">
+          <div class="word-top">
+            <span class="word-text">${escapeHtml(w.word)}</span>
+            ${phonetic ? `<span class="word-phonetic">${escapeHtml(phonetic)}</span>` : ''}
+            <button class="btn-audio" onclick="event.stopPropagation();speak('${escapeAttr(w.word)}')" title="发音">🔊</button>
+          </div>
+          <div class="word-meaning ${revealed ? '' : 'hidden'}">${escapeHtml(w.meaning || '（无释义）')}</div>
+          ${w.example ? `<div class="word-example ${revealed ? '' : 'hidden'}">${escapeHtml(w.example)}</div>` : ''}
+        </div>
+        <div class="word-actions">
+          <button class="btn-mark ${isMastered ? 'done' : ''}" onclick="event.stopPropagation();markWord('${escapeAttr(w.slug)}')">${isMastered ? '✓ 已掌握' : '标记掌握'}</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function switchWordTab(tab) {
+  App.wordTab = tab;
+  document.querySelectorAll('#view-book .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  renderBook();
+}
+
+function toggleReveal(slug) {
+  if (App.revealed.has(slug)) App.revealed.delete(slug); else App.revealed.add(slug);
+  renderBook();
+}
+
+async function markWord(slug) {
+  const b = App.book; if (!b) return;
+  const w = b.words.find(x => x.slug === slug);
+  if (!w) return;
+  const newStatus = w.status === 'mastered' ? 'learning' : 'mastered';
+
+  if (!API.isLoggedIn()) {
+    // 游客：本地保存
+    const map = guestStatusGet();
+    map[slug] = newStatus;
+    guestStatusSet(map);
+    w.status = newStatus;
+    renderBook();
+    showToast(newStatus === 'mastered' ? '已标记为掌握（仅本地）' : '已取消标记');
+    return;
+  }
+  const res = await API.setWordStatus(slug, newStatus);
+  if (res.ok) {
+    w.status = newStatus;
+    renderBook();
+    showToast(newStatus === 'mastered' ? '已掌握 🎉' : '已取消掌握');
+  } else {
+    showToast(res.data.error || '操作失败');
+  }
+}
+
+function backToBooks() { App.book = null; showViewBooks(); loadBooks(); }
+
+// ---------------- 学习模式：选择题 / 拼写 ----------------
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+// 归一化：小写、去空格、去标点，用于拼写比较
+function normWord(s) {
+  return String(s || '').toLowerCase().replace(/\s+/g, '').replace(/[.。,，!！?？;；:：'"()（）]/g, '');
+}
+
+// 从当前词书抽样生成练习队列（优先未掌握，其次已掌握）
+function buildStudyQueue(size) {
+  const words = (App.book?.words || []).filter(w => w && w.word);
+  if (!words.length) return [];
+  const unknown = shuffle(words.filter(w => w.status !== 'mastered' && w.meaning));
+  const known = shuffle(words.filter(w => w.status === 'mastered' && w.meaning));
+  let pool = unknown.concat(known);
+  if (pool.length < size) {
+    const extra = shuffle(words.filter(w => !w.meaning && !pool.includes(w)));
+    pool = pool.concat(extra);
+  }
+  return shuffle(pool).slice(0, Math.min(size, pool.length));
+}
+
+function startQuiz() {
+  if (!App.book || !App.book.words.length) return showToast('请先打开一本词书');
+  const queue = buildStudyQueue(10);
+  if (!queue.length) return showToast('这本书暂无可用单词');
+  App.study = { mode: 'quiz', queue, idx: 0, correct: 0, wrong: 0, shown: [] };
+  openStudy();
+}
+function startSpell() {
+  if (!App.book || !App.book.words.length) return showToast('请先打开一本词书');
+  const queue = buildStudyQueue(10).filter(w => w.word);
+  if (!queue.length) return showToast('这本书暂无可用单词');
+  App.study = { mode: 'spell', queue, idx: 0, correct: 0, wrong: 0, shown: [] };
+  openStudy();
+}
+function openStudy() {
+  showViewStudy();
+  document.getElementById('study-title').textContent =
+    (App.study.mode === 'quiz' ? '选择题测试' : '拼写练习') + ' · ' + (App.book?.name || '');
+  renderStudy();
+}
+function showViewStudy() {
+  document.getElementById('view-study').classList.remove('hidden');
+  document.getElementById('view-book').classList.add('hidden');
+}
+function closeStudy() {
+  App.study = null;
+  document.getElementById('view-study').classList.add('hidden');
+  showViewBook();
+  renderBook();
+}
+function renderStudy() {
+  const s = App.study; if (!s) return;
+  const w = s.queue[s.idx];
+  if (!w) return finishStudy();
+  const total = s.queue.length;
+  const body = document.getElementById('study-body');
+  body.innerHTML = (s.mode === 'quiz') ? quizHtml(w, s.idx, total) : spellHtml(w, s.idx, total);
+}
+
+function quizHtml(w, idx, total) {
+  const pool = App.book.words.filter(x => x.word !== w.word && x.meaning && x.meaning !== w.meaning);
+  const distract = shuffle(pool).slice(0, 3).map(x => x.meaning);
+  const opts = shuffle([w.meaning, ...distract]);
+  const phon = w.phonetic_us || w.phonetic_uk;
+  return `
+    <div class="study-card">
+      <div class="study-progress">第 ${idx + 1} / ${total} 题 · 已答对 ${App.study.correct}</div>
+      <div class="quiz-word">
+        <div class="quiz-word-text">${escapeHtml(w.word)}</div>
+        ${phon ? `<div class="quiz-word-phon">${escapeHtml(phon)}</div>` : ''}
+        <button class="btn-audio" onclick="speak('${escapeAttr(w.word)}')" title="听发音">🔊</button>
+      </div>
+      <div class="quiz-prompt">选择正确的释义</div>
+      <div class="quiz-options">
+        ${opts.map(o => `<button class="quiz-opt" onclick="answerQuiz(this)">${escapeHtml(o)}</button>`).join('')}
+      </div>
+      <div class="study-feedback" id="study-feedback"></div>
+      <div class="study-actions"><button class="btn btn-primary hidden" id="study-next" onclick="nextStudy()">下一题 →</button></div>
+    </div>`;
+}
+
+function answerQuiz(btn) {
+  const s = App.study; const w = s.queue[s.idx];
+  const btns = Array.from(document.querySelectorAll('.quiz-opt'));
+  const correctMeaning = (w.meaning || '').trim();
+  let chosenCorrect = false;
+  btns.forEach(b => {
+    const isCorrect = b.textContent.trim() === correctMeaning;
+    if (isCorrect) { b.classList.add('correct'); if (b === btn) chosenCorrect = true; }
+    else if (b === btn) b.classList.add('wrong');
+    b.disabled = true;
+  });
+  s.shown.push({ word: w, correct: chosenCorrect });
+  if (chosenCorrect) s.correct++; else s.wrong++;
+  const fb = document.getElementById('study-feedback');
+  if (chosenCorrect) {
+    fb.textContent = '✅ 答对了！';
+    fb.className = 'study-feedback ok';
+  } else {
+    fb.innerHTML = '❌ 正确答案：' + escapeHtml(w.meaning) + (w.example ? '　例句：' + escapeHtml(w.example) : '');
+    fb.className = 'study-feedback no';
+  }
+  document.getElementById('study-next').classList.remove('hidden');
+}
+
+function spellHtml(w, idx, total) {
+  const phon = w.phonetic_us || w.phonetic_uk;
+  return `
+    <div class="study-card">
+      <div class="study-progress">第 ${idx + 1} / ${total} 词 · 拼写正确 ${App.study.correct}</div>
+      <div class="spell-prompt">请根据释义拼写单词：</div>
+      <div class="spell-meaning">${escapeHtml(w.meaning || '（无释义）')}</div>
+      ${phon ? `<div class="spell-phon">${escapeHtml(phon)}</div>` : ''}
+      <button class="btn-audio-lg" onclick="speak('${escapeAttr(w.word)}')">🔊 听发音</button>
+      <input type="text" id="spell-input" class="input spell-input" placeholder="输入英文拼写…" autocomplete="off" onkeydown="if(event.key==='Enter')submitSpell()">
+      <div class="study-actions">
+        <button class="btn btn-primary" onclick="submitSpell()">提交</button>
+        <button class="btn btn-ghost" onclick="revealSpell()">看答案</button>
+      </div>
+      <div class="study-feedback" id="study-feedback"></div>
+      <div class="study-actions"><button class="btn btn-primary hidden" id="study-next" onclick="nextStudy()">下一个 →</button></div>
+    </div>`;
+}
+
+function submitSpell() {
+  const s = App.study; const w = s.queue[s.idx];
+  const input = document.getElementById('spell-input');
+  if (!input) return;
+  const raw = input.value;
+  if (!normWord(raw)) return showToast('请输入拼写');
+  recordSpell(w, normWord(raw) === normWord(w.word), raw, false);
+}
+function revealSpell() {
+  const w = App.study.queue[App.study.idx];
+  recordSpell(w, false, null, true);
+}
+function recordSpell(w, ok, userVal, revealed) {
+  const s = App.study;
+  const fb = document.getElementById('study-feedback');
+  const input = document.getElementById('spell-input');
+  if (input) input.disabled = true;
+  s.shown.push({ word: w, correct: ok });
+  if (ok) s.correct++; else s.wrong++;
+  if (ok) {
+    fb.innerHTML = '✅ 拼写正确！';
+    fb.className = 'study-feedback ok';
+  } else if (revealed) {
+    fb.innerHTML = '正确答案：<b>' + escapeHtml(w.word) + '</b>';
+    fb.className = 'study-feedback no';
+  } else {
+    fb.innerHTML = '❌ 正确拼写：<b>' + escapeHtml(w.word) + '</b>　（你写的是：' + escapeHtml(userVal || '') + '）';
+    fb.className = 'study-feedback no';
+  }
+  const nx = document.getElementById('study-next');
+  if (nx) nx.classList.remove('hidden');
+}
+
+function nextStudy() {
+  const s = App.study;
+  s.idx++;
+  if (s.idx >= s.queue.length) return finishStudy();
+  renderStudy();
+}
+
+function finishStudy() {
+  const s = App.study; if (!s) return;
+  const total = s.queue.length;
+  const pct = total ? Math.round((s.correct / total) * 100) : 0;
+  const emoji = pct >= 80 ? '🏆' : pct >= 60 ? '👍' : '💪';
+  const body = document.getElementById('study-body');
+  body.innerHTML = `
+    <div class="study-card study-result">
+      <div class="result-emoji">${emoji}</div>
+      <h3 class="result-title">${s.mode === 'quiz' ? '选择题测试' : '拼写练习'}完成！</h3>
+      <div class="result-score">答对 ${s.correct} / ${total}（${pct}%）</div>
+      <div class="study-actions study-result-actions">
+        <button class="btn btn-primary" onclick="${s.mode === 'quiz' ? 'startQuiz' : 'startSpell'}()">再来一局</button>
+        <button class="btn btn-outline" onclick="markStudyMastered()">把答对的标记为已掌握</button>
+        <button class="btn btn-ghost" onclick="closeStudy()">返回词书</button>
+      </div>
+    </div>`;
+}
+
+// 把本轮答对的词标记为已掌握（登录用户写云端，游客存本地）
+async function markStudyMastered() {
+  const s = App.study;
+  if (!s || !s.shown.length) return;
+  const correctWords = s.shown.filter(x => x.correct).map(x => x.word);
+  if (!correctWords.length) return showToast('本轮没有答对的词');
+  let done = 0;
+  for (const w of correctWords) {
+    if (w.status === 'mastered') { done++; continue; }
+    if (!API.isLoggedIn()) {
+      const map = guestStatusGet(); map[w.slug] = 'mastered'; guestStatusSet(map); w.status = 'mastered'; done++;
+    } else {
+      const res = await API.setWordStatus(w.slug, 'mastered');
+      if (res.ok) { w.status = 'mastered'; done++; }
+    }
+  }
+  renderBook();
+  showToast(`已将 ${done} 个答对的词标记为已掌握`);
+}
+
+// ---------------- 用户导入 ----------------
+function showImportModal() { document.getElementById('import-modal').classList.remove('hidden'); }
+function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); document.getElementById('import-error').classList.add('hidden'); }
+function showImportError(msg) { const e = document.getElementById('import-error'); e.textContent = msg; e.classList.remove('hidden'); }
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length);
+  if (!lines.length) return [];
+  const header = splitCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+  const idx = k => header.indexOf(k);
+  const wi = idx('word'), mi = idx('meaning') < 0 ? idx('trans') : idx('meaning'), pi = idx('phonetic'), ei = idx('example'), psi = idx('pos');
+  const out = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = splitCSVLine(lines[i]);
+    const word = (wi >= 0 ? cells[wi] : cells[0] || '').trim();
+    const meaning = (mi >= 0 ? cells[mi] : cells[1] || '').trim();
+    if (!word) continue;
+    out.push({ word, meaning, phonetic: pi >= 0 ? cells[pi] : '', example: ei >= 0 ? cells[ei] : '', pos: psi >= 0 ? cells[psi] : '' });
+  }
+  return out;
+}
+function splitCSVLine(line) {
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { if (q && line[i + 1] === '"') { cur += '"'; i++; } else q = !q; }
+    else if (c === ',' && !q) { out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur); return out;
+}
+
+async function doImport() {
+  const name = document.getElementById('import-name').value.trim();
+  const text = document.getElementById('import-text').value.trim();
+  if (!name) return showImportError('请填写词书名');
+  if (!text) return showImportError('请粘贴单词数据');
+  let words;
+  try {
+    if (text.trimStart().startsWith('[')) {
+      const arr = JSON.parse(text);
+      words = arr.map(w => ({ word: w.word, meaning: w.meaning, phonetic: w.phonetic || w.phoneticUs || '', example: w.example || '', pos: w.pos || '' }));
+    } else {
+      words = parseCSV(text);
+    }
+  } catch (e) { return showImportError('解析失败：' + e.message); }
+  words = words.filter(w => w && w.word && w.meaning);
+  if (!words.length) return showImportError('没有解析到有效单词（每行需含 word 和 meaning）');
+  if (words.length > 2000) return showImportError('单次最多导入 2000 个单词（当前 ' + words.length + '）');
+
+  document.getElementById('import-loading').classList.remove('hidden');
+  const res = await API.importBook(name, words);
+  document.getElementById('import-loading').classList.add('hidden');
+  if (res.ok) {
+    closeImportModal();
+    document.getElementById('import-name').value = '';
+    document.getElementById('import-text').value = '';
+    showToast(`导入成功：${res.data.count} 个单词`);
+    loadBooks();
+  } else showImportError(res.data.error || '导入失败');
+}
+
+// ---------------- 认证 ----------------
+function showAuthModal(tab) { document.getElementById('auth-modal').classList.remove('hidden'); switchAuthTab(tab || 'login'); }
+function closeAuthModal() { document.getElementById('auth-modal').classList.add('hidden'); }
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.auth-tab[data-auth="${tab}"]`)?.classList.add('active');
+  document.getElementById('login-form').classList.toggle('hidden', tab !== 'login');
+  document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
+  document.getElementById('auth-error').classList.add('hidden');
+}
+function showAuthError(msg) { const e = document.getElementById('auth-error'); e.textContent = msg; e.classList.remove('hidden'); }
+
+async function doRegister(e) {
+  e.preventDefault();
+  const res = await API.register(
+    document.getElementById('reg-username').value.trim(),
+    document.getElementById('reg-email').value.trim(),
+    document.getElementById('reg-password').value
+  );
+  if (res.ok) { API.setAuth(res.data.token, res.data.user); onLoggedIn(res.data.user); closeAuthModal(); showToast('注册成功，欢迎！'); }
+  else showAuthError(res.data.error || '注册失败');
+}
+async function doLogin(e) {
+  e.preventDefault();
+  const res = await API.login(
+    document.getElementById('login-username').value.trim(),
+    document.getElementById('login-password').value
+  );
+  if (res.ok) { API.setAuth(res.data.token, res.data.user); onLoggedIn(res.data.user); closeAuthModal(); showToast('登录成功！'); }
+  else showAuthError(res.data.error || '登录失败');
+}
+async function logout() {
+  API.clearAuth(); App.isGuest = false; App.isAdmin = false; App.book = null;
+  document.getElementById('nav-user').classList.add('hidden');
+  document.getElementById('nav-login-btn').classList.remove('hidden');
+  document.getElementById('import-book-btn').classList.add('hidden');
+  showWelcome(); showToast('已退出登录');
+}
+
+function onLoggedIn(user) {
+  App.isGuest = false; App.isAdmin = user.role === 'admin';
+  document.getElementById('nav-login-btn').classList.add('hidden');
+  document.getElementById('nav-user').classList.remove('hidden');
+  document.getElementById('nav-username').textContent = user.username;
+  document.getElementById('nav-role')?.classList.toggle('hidden', !App.isAdmin);
+  document.getElementById('import-book-btn')?.classList.toggle('hidden', !API.isLoggedIn());
+  showApp(); loadBooks();
+}
+
+// ---------------- HTML 转义 ----------------
+function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }
+
+// ---------------- 初始化 ----------------
+async function init() {
+  if (API.isLoggedIn()) {
+    const res = await API.me();
+    if (res.ok) { onLoggedIn(res.data.user); return; }
+    API.clearAuth();
+  }
+  showWelcome();
+}
+window.addEventListener('DOMContentLoaded', init);
