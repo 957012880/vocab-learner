@@ -26,3 +26,6 @@ scripts/gen-admin.cjs
 
 # 本地开发密钥（不要提交）
 .dev.vars
+
+# wrangler 本地开发状态
+.wrangler/
