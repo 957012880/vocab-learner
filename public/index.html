@@ -123,14 +123,14 @@
       <input type="text" class="input" id="login-username" placeholder="用户名或邮箱" required>
       <input type="password" class="input" id="login-password" placeholder="密码" required>
       <div id="cf-turnstile-login" class="cf-turnstile"></div>
-      <button type="submit" class="btn btn-primary btn-block">登录</button>
+      <button type="submit" id="login-btn" class="btn btn-primary btn-block">登录</button>
     </form>
     <form id="register-form" class="auth-form hidden" onsubmit="doRegister(event)">
       <input type="text" class="input" id="reg-username" placeholder="用户名 (3-20字符)" required minlength="3" maxlength="20">
       <input type="email" class="input" id="reg-email" placeholder="邮箱" required>
       <input type="password" class="input" id="reg-password" placeholder="密码 (至少6位)" required minlength="6">
       <div id="cf-turnstile-register" class="cf-turnstile"></div>
-      <button type="submit" class="btn btn-primary btn-block">注册</button>
+      <button type="submit" id="register-btn" class="btn btn-primary btn-block">注册</button>
     </form>
     <div id="auth-error" class="auth-error hidden"></div>
   </div>

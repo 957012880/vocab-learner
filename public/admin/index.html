@@ -6,31 +6,42 @@
   <title>管理后台 | 单词书库</title>
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    .admin-wrap { max-width: 1000px; margin: 0 auto; padding: 24px 20px 60px; }
-    .admin-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-    .admin-head h1 { font-size: 22px; margin: 0; }
-    .admin-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 22px; }
-    .stat-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; }
-    .stat-card .n { font-size: 26px; font-weight: 700; color: var(--primary); }
-    .stat-card .l { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
-    .panel { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 22px; }
-    .panel h2 { font-size: 16px; margin: 0 0 14px; }
+    body { background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); }
+    .admin-wrap { max-width: 1000px; margin: 0 auto; padding: 28px 24px 60px; }
+    .admin-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .admin-head h1 { font-size: 24px; font-weight: 700; margin: 0; }
+    .admin-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .stat-card {
+      background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow);
+      padding: 18px 20px; border: 1px solid var(--border); transition: var(--transition);
+    }
+    .stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .stat-card .n { font-size: 28px; font-weight: 800; color: var(--primary); }
+    .stat-card .l { font-size: 13px; color: var(--text-muted); margin-top: 6px; font-weight: 500; }
+    .panel {
+      background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow);
+      padding: 24px; margin-bottom: 24px; border: 1px solid var(--border);
+    }
+    .panel h2 { font-size: 17px; font-weight: 700; margin: 0 0 18px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    .panel h2::before { content: ''; width: 4px; height: 20px; background: var(--primary); border-radius: 2px; }
     table.members { width: 100%; border-collapse: collapse; font-size: 14px; }
-    table.members th, table.members td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
-    table.members th { color: var(--text-muted); font-weight: 600; font-size: 13px; }
-    .role-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; }
-    .role-badge.admin { background: #fde68a; color: #92400e; }
+    table.members th, table.members td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border); }
+    table.members th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    table.members tr:last-child td { border-bottom: none; }
+    table.members tr:hover td { background: var(--surface-hover); }
+    .role-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .role-badge.admin { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
     .role-badge.member { background: var(--primary-light); color: var(--primary); }
     .row-actions { display: flex; gap: 8px; }
-    .add-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .add-form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .add-form .full { grid-column: 1 / -1; }
-    .add-form .actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; }
+    .add-form .actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 12px; }
     @media (max-width: 560px) { .add-form { grid-template-columns: 1fr; } }
-    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .setting-row { display: flex; flex-direction: column; gap: 6px; }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .setting-row { display: flex; flex-direction: column; gap: 7px; }
     .setting-full { grid-column: 1 / -1; }
-    .setting-label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
-    .settings-actions { margin-top: 16px; display: flex; justify-content: flex-end; }
+    .setting-label { font-size: 13px; color: var(--text-secondary); font-weight: 600; letter-spacing: 0.2px; }
+    .settings-actions { margin-top: 18px; display: flex; justify-content: flex-end; }
     @media (max-width: 560px) { .settings-grid { grid-template-columns: 1fr; } }
   </style>
 </head>

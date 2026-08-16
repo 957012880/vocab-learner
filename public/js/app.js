@@ -133,16 +133,32 @@ function startGuestMode() {
 // ---------------- 词书列表 ----------------
 async function loadBooks() {
   const grid = document.getElementById('books-grid');
-  grid.innerHTML = '<p class="empty-hint">加载中…</p>';
+  // 显示骨架屏
+  grid.innerHTML = Array(6).fill('').map(() => `
+    <div class="book-card">
+      <div class="skeleton" style="height:130px;border-radius:var(--radius-lg) var(--radius-lg) 0 0;"></div>
+      <div class="book-body">
+        <div class="skeleton" style="height:18px;width:80%;margin-bottom:10px;"></div>
+        <div class="skeleton" style="height:8px;width:60%;margin-bottom:12px;"></div>
+        <div class="skeleton" style="height:14px;width:100%;margin-top:auto;border-radius:var(--radius-sm);"></div>
+      </div>
+    </div>`).join('');
+
   const res = await API.getBooks();
-  if (!res.ok) { grid.innerHTML = `<p class="empty-hint">${res.data.error || '加载失败，请确认已部署后端并导入词库'}</p>`; return; }
+  if (!res.ok) {
+    grid.innerHTML = `<p class="empty-hint" style="grid-column:1/-1">${res.data.error || '加载失败，请确认已部署后端并导入词库'}</p>`;
+    return;
+  }
   App.books = res.data.books || [];
   renderBooks();
 }
 
 function renderBooks() {
   const grid = document.getElementById('books-grid');
-  if (!App.books.length) { grid.innerHTML = '<p class="empty-hint">暂无词书，登录后可导入你自己的单词</p>'; return; }
+  if (!App.books.length) {
+    grid.innerHTML = '<p class="empty-hint">暂无词书，登录后可导入你自己的单词</p>';
+    return;
+  }
   grid.innerHTML = App.books.map(b => {
     const pct = b.wordCount ? Math.round((b.masteredCount / b.wordCount) * 100) : 0;
     const cover = b.cover
@@ -547,10 +563,7 @@ async function doImport() {
 }
 
 // ---------------- 认证 ----------------
-function showAuthModal(tab) {
-  document.getElementById('auth-modal').classList.remove('hidden');
-  switchAuthTab(tab || 'login');
-}
+function showAuthModal(tab) { document.getElementById('auth-modal').classList.remove('hidden'); switchAuthTab(tab || 'login'); }
 function closeAuthModal() { document.getElementById('auth-modal').classList.add('hidden'); resetTurnstile(); }
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
@@ -562,28 +575,39 @@ function switchAuthTab(tab) {
 }
 function showAuthError(msg) { const e = document.getElementById('auth-error'); e.textContent = msg; e.classList.remove('hidden'); }
 
+function setLoading(btnId, loading, originalText) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  if (loading) { btn.disabled = true; btn.dataset.originalText = btn.textContent; btn.textContent = '处理中…'; }
+  else { btn.disabled = false; btn.textContent = btn.dataset.originalText || originalText; }
+}
+
 async function doRegister(e) {
   e.preventDefault();
   if (TS.enabled && !getTurnstileToken('register')) return showAuthError('请先完成人机验证（点一下验证框）');
+  setLoading('register-btn', true, '注册');
   const res = await API.register(
     document.getElementById('reg-username').value.trim(),
     document.getElementById('reg-email').value.trim(),
     document.getElementById('reg-password').value,
     getTurnstileToken('register')
   );
+  setLoading('register-btn', false, '注册');
   if (res.ok) { API.setAuth(res.data.token, res.data.user); onLoggedIn(res.data.user); closeAuthModal(); showToast('注册成功，欢迎！'); }
-  else { showAuthError(res.data.error || '注册失败'); resetTurnstile(); }
+  else showAuthError(res.data.error || '注册失败');
 }
 async function doLogin(e) {
   e.preventDefault();
   if (TS.enabled && !getTurnstileToken('login')) return showAuthError('请先完成人机验证（点一下验证框）');
+  setLoading('login-btn', true, '登录');
   const res = await API.login(
     document.getElementById('login-username').value.trim(),
     document.getElementById('login-password').value,
     getTurnstileToken('login')
   );
+  setLoading('login-btn', false, '登录');
   if (res.ok) { API.setAuth(res.data.token, res.data.user); onLoggedIn(res.data.user); closeAuthModal(); showToast('登录成功！'); }
-  else { showAuthError(res.data.error || '登录失败'); resetTurnstile(); }
+  else showAuthError(res.data.error || '登录失败');
 }
 async function logout() {
   API.clearAuth(); App.isGuest = false; App.isAdmin = false; App.book = null;
@@ -610,22 +634,35 @@ function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }
 
 // ---------------- 初始化 ----------------
 async function init() {
+  // 显示加载状态
+  const body = document.body;
+  body.classList.add('loading');
+
   await loadConfig();
+  body.classList.remove('loading');
+
+  // 维护模式检查（非管理员）
+  if (App.config.maintenanceMode && !API.isLoggedIn()) {
+    document.getElementById('maintenance-overlay')?.classList.remove('hidden');
+    return;
+  }
+
+  // 关闭注册时隐藏注册 Tab
+  if (!App.config.allowRegister) {
+    const regTab = document.querySelector('.auth-tab[data-auth="register"]');
+    if (regTab) regTab.classList.add('hidden');
+  }
+
   if (API.isLoggedIn()) {
     const res = await API.me();
     if (res.ok) {
       onLoggedIn(res.data.user);
-      // 管理员登录后也要应用配置（维护模式覆盖等）
       applyConfig();
       return;
     }
     API.clearAuth();
   }
-  // 维护模式：非管理员看到维护页
-  if (App.config.maintenanceMode) {
-    document.getElementById('maintenance-overlay')?.classList.remove('hidden');
-    return;
-  }
+
   showWelcome();
 }
 window.addEventListener('DOMContentLoaded', init);
