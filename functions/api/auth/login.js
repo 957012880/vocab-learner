@@ -42,6 +42,12 @@ export async function onRequestPost({ request, env }) {
 
   return json({
     token,
-    user: { id: user.id, username: user.username, email: user.email, role: user.role }
+    user: {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      emailVerified: user.email_verified ? 1 : 0,
+    }
   });
 }

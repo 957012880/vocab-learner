@@ -117,7 +117,7 @@ function applyConfig() {
   // 站点名称
   document.title = `${c.siteName} | Vocab Learner`;
   document.querySelectorAll('.nav-title').forEach(el => el.textContent = c.siteName);
-  document.querySelectorAll('.hero-title').forEach(el => el.textContent = `${c.siteName} 📖`);
+  document.querySelectorAll('.hero-title').forEach(el => el.textContent = `${c.siteName}`);
   // 公告
   const ann = document.getElementById('announcement-bar');
   if (ann) { ann.textContent = c.announcement || ''; ann.classList.toggle('hidden', !c.announcement); }
@@ -163,7 +163,7 @@ function guestStatusSet(map) { localStorage.setItem('vocab_guest_status', JSON.s
 // ---------------- 视图切换 ----------------
 function showApp() { document.getElementById('welcome-section')?.classList.add('hidden'); document.getElementById('app-section')?.classList.remove('hidden'); }
 function showWelcome() { document.getElementById('welcome-section')?.classList.remove('hidden'); document.getElementById('app-section')?.classList.add('hidden'); }
-function showViewBooks() { document.getElementById('view-books').classList.remove('hidden'); document.getElementById('view-book').classList.add('hidden'); }
+function showViewBooks() { document.getElementById('view-dashboard')?.classList.add('hidden'); document.getElementById('view-books').classList.remove('hidden'); document.getElementById('view-book').classList.add('hidden'); }
 function showViewBook() { document.getElementById('view-books').classList.add('hidden'); document.getElementById('view-book').classList.remove('hidden'); }
 
 function startGuestMode() {
@@ -575,18 +575,20 @@ function splitCSVLine(line) {
 
 async function doImport() {
   const name = document.getElementById('import-name').value.trim();
-  const text = document.getElementById('import-text').value.trim();
   if (!name) return showImportError('请填写词书名');
-  if (!text) return showImportError('请粘贴单词数据');
+  const fileInput = document.getElementById('import-file');
+  const textarea = document.getElementById('import-text');
+  let text = '';
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    text = await fileInput.files[0].text();
+  } else if (textarea && textarea.value.trim()) {
+    text = textarea.value.trim(); // 兜底：允许直接粘贴
+  } else {
+    return showImportError('请选择单词文件（JSON / CSV / TXT），或直接在文本框粘贴');
+  }
   let words;
-  try {
-    if (text.trimStart().startsWith('[')) {
-      const arr = JSON.parse(text);
-      words = arr.map(w => ({ word: w.word, meaning: w.meaning, phonetic: w.phonetic || w.phoneticUs || '', example: w.example || '', pos: w.pos || '' }));
-    } else {
-      words = parseCSV(text);
-    }
-  } catch (e) { return showImportError('解析失败：' + e.message); }
+  try { words = parseImportText(text); }
+  catch (e) { return showImportError('解析失败：' + e.message); }
   words = words.filter(w => w && w.word && w.meaning);
   if (!words.length) return showImportError('没有解析到有效单词（每行需含 word 和 meaning）');
   if (words.length > 2000) return showImportError('单次最多导入 2000 个单词（当前 ' + words.length + '）');
@@ -596,8 +598,8 @@ async function doImport() {
   document.getElementById('import-loading').classList.add('hidden');
   if (res.ok) {
     closeImportModal();
-    document.getElementById('import-name').value = '';
-    document.getElementById('import-text').value = '';
+    if (fileInput) fileInput.value = '';
+    if (textarea) textarea.value = '';
     showToast(`导入成功：${res.data.count} 个单词`);
     loadBooks();
   } else showImportError(res.data.error || '导入失败');
@@ -634,7 +636,16 @@ async function doRegister(e) {
     getTurnstileToken('register')
   );
   setLoading('register-btn', false, '注册');
-  if (res.ok) { API.setAuth(res.data.token, res.data.user); onLoggedIn(res.data.user); closeAuthModal(); showToast('注册成功，欢迎！'); }
+  if (res.ok) {
+    API.setAuth(res.data.token, res.data.user);
+    onLoggedIn(res.data.user);
+    closeAuthModal();
+    showToast('注册成功，欢迎！');
+    // 触发邮箱验证闭环：未验证则弹出验证框（未配置 SMTP 时回填测试验证码）
+    if (res.data.needsVerification) {
+      setTimeout(() => showVerifyModal(res.data.devCode), 600);
+    }
+  }
   else showAuthError(res.data.error || '注册失败');
 }
 async function doLogin(e) {
@@ -666,7 +677,21 @@ function onLoggedIn(user) {
   document.getElementById('nav-role')?.classList.toggle('hidden', !App.isAdmin);
   document.getElementById('nav-admin-btn')?.classList.toggle('hidden', !App.isAdmin);
   document.getElementById('import-book-btn')?.classList.toggle('hidden', !API.isLoggedIn());
-  showApp(); loadBooks();
+  showApp();
+  navTo('dashboard');
+  // 邮箱未验证提示
+  updateVerifyBanner(user);
+}
+
+// 顶部邮箱验证提示条
+function updateVerifyBanner(user) {
+  const banner = document.getElementById('verify-banner');
+  if (!banner) return;
+  if (user && !user.emailVerified) {
+    banner.classList.remove('hidden');
+  } else {
+    banner.classList.add('hidden');
+  }
 }
 
 // ---------------- 忘记密码弹窗 ----------------
@@ -704,6 +729,164 @@ function showForgotError(msg, success) {
   el.style.color = success ? 'var(--green)' : '';
   el.style.borderColor = success ? 'var(--green)' : '';
   if (success) setTimeout(() => closeForgotModal(), 4000);
+}
+
+// ---------------- 学习中心（仪表盘）----------------
+function navTo(tab) {
+  if (tab === 'dashboard') {
+    showViewDashboard();
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.nav === 'dashboard'));
+    renderDashboard();
+  } else {
+    showViewBooks();
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.nav === 'books'));
+    loadBooks();
+  }
+}
+
+function showViewDashboard() {
+  ['view-books', 'view-book', 'view-study'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+  document.getElementById('view-dashboard')?.classList.remove('hidden');
+}
+
+async function renderDashboard() {
+  const root = document.getElementById('dashboard-content');
+  if (!root) return;
+  root.innerHTML = '<div class="card-loading">加载中…</div>';
+
+  const [statsRes, booksRes, achRes] = await Promise.all([
+    API.getStats(), API.getBooks(), API.getAchievements(),
+  ]);
+  const stats = statsRes.ok ? (statsRes.data || {}) : {};
+  const books = booksRes.ok ? (booksRes.data.books || []) : [];
+  const achievements = achRes.ok ? (achRes.data.achievements || []) : [];
+
+  let totalWords = 0, totalMastered = 0;
+  books.forEach(b => { totalWords += b.wordCount || 0; totalMastered += b.masteredCount || 0; });
+  const overallPct = totalWords ? Math.round(totalMastered / totalWords * 100) : 0;
+
+  const inProgress = books.filter(b => b.wordCount > 0 && b.masteredCount < b.wordCount);
+  const continueBook = (inProgress.sort((a, b) =>
+    (b.masteredCount / b.wordCount) - (a.masteredCount / a.wordCount))[0]) || books[0];
+  const unlocked = achievements.filter(a => a.unlocked);
+
+  root.innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card dash-overview">
+        <div class="progress-ring" style="--pct:${overallPct}">
+          <div class="progress-ring-inner">
+            <span class="progress-ring-num">${overallPct}%</span>
+            <span class="progress-ring-label">总掌握率</span>
+          </div>
+        </div>
+        <div class="overview-stats">
+          <div class="ov-stat"><div class="ov-num">${stats.masteredWords ?? 0}</div><div class="ov-label">已掌握词</div></div>
+          <div class="ov-stat"><div class="ov-num">${stats.studyDays ?? 0}</div><div class="ov-label">学习天数</div></div>
+          <div class="ov-stat"><div class="ov-num">${stats.currentStreak ?? 0}</div><div class="ov-label">连续打卡</div></div>
+          <div class="ov-stat"><div class="ov-num">${stats.todayMastered ?? 0}</div><div class="ov-label">今日掌握</div></div>
+        </div>
+      </div>
+
+      <div class="dash-card dash-continue">
+        <div class="card-title">继续学习</div>
+        ${continueBook ? `
+          <div class="continue-book">
+            <div class="continue-name">${escapeHtml(continueBook.name)}</div>
+            <div class="continue-prog"><div class="continue-fill" style="width:${Math.round((continueBook.masteredCount / continueBook.wordCount) * 100)}%"></div></div>
+            <div class="continue-meta">${continueBook.masteredCount} / ${continueBook.wordCount} 已掌握</div>
+            <div class="continue-actions">
+              <button class="btn btn-primary btn-sm" onclick="openBook('${escapeAttr(continueBook.slug)}')">继续学习 →</button>
+              <button class="btn btn-outline btn-sm" onclick="startQuizFromBook('${escapeAttr(continueBook.slug)}')">📝 测试</button>
+            </div>
+          </div>` : '<p class="empty-hint">还没有词书，去「词书库」开始吧</p>'}
+      </div>
+
+      ${unlocked.length ? `
+      <div class="dash-card dash-ach">
+        <div class="card-title">成就墙 (${unlocked.length})</div>
+        <div class="dash-badges">
+          ${unlocked.slice(0, 4).map(a => `<div class="dash-badge" title="${escapeAttr(a.description || '')}">
+            <span class="dash-badge-icon">${a.icon || '🏅'}</span>
+            <span class="dash-badge-name">${escapeHtml(a.name)}</span>
+          </div>`).join('')}
+        </div>
+        <a class="dash-link" href="/profile/">查看全部成就 →</a>
+      </div>` : ''}
+
+      <div class="dash-card dash-start">
+        <div class="card-title">开始一本词书</div>
+        <div class="start-list">
+          ${books.slice(0, 6).map(b => `
+            <div class="start-item" onclick="openBook('${escapeAttr(b.slug)}')">
+              <span class="start-name">${escapeHtml(b.name)}</span>
+              <span class="start-meta">${b.wordCount} 词 · ${Math.round(((b.masteredCount || 0) / (b.wordCount || 1)) * 100)}%</span>
+            </div>`).join('') || '<p class="empty-hint">暂无词书</p>'}
+        </div>
+        <a class="dash-link" href="javascript:void(0)" onclick="navTo('books')">浏览全部词书 →</a>
+      </div>
+    </div>`;
+}
+
+async function startQuizFromBook(slug) {
+  await openBook(slug);
+  startQuiz();
+}
+
+// ---------------- 邮箱验证弹窗 ----------------
+function showVerifyModal(prefillCode) {
+  const m = document.getElementById('verify-modal');
+  if (!m) return;
+  m.classList.remove('hidden');
+  const input = document.getElementById('verify-code-input');
+  if (prefillCode && input) input.value = prefillCode;
+  document.getElementById('verify-error')?.classList.add('hidden');
+  document.getElementById('verify-success')?.classList.add('hidden');
+}
+function closeVerifyModal() { document.getElementById('verify-modal')?.classList.add('hidden'); }
+async function sendVerifyCode() {
+  const btn = document.getElementById('verify-send-btn');
+  if (!btn) return;
+  btn.disabled = true; btn.textContent = '发送中…';
+  const res = await API.sendVerification();
+  btn.disabled = false; btn.textContent = '重新发送验证码';
+  if (res.ok) {
+    const msg = res.data?.alreadyVerified ? '邮箱已验证' : '验证码已发送，请查收邮件';
+    showToast(msg);
+  } else {
+    showToast(res.data?.error || '发送失败');
+  }
+}
+async function submitVerifyCode() {
+  const input = document.getElementById('verify-code-input');
+  const code = input?.value.trim();
+  if (!code) return showToast('请输入验证码');
+  const res = await API.verifyEmail(code);
+  if (res.ok) {
+    showToast('邮箱验证成功 🎉');
+    const u = API.getStoredUser();
+    if (u) { u.emailVerified = 1; API.setAuth(API.getToken(), u); }
+    updateVerifyBanner(API.getStoredUser());
+    closeVerifyModal();
+    const s = document.getElementById('verify-success'); if (s) { s.classList.remove('hidden'); }
+  } else {
+    const e = document.getElementById('verify-error');
+    if (e) { e.textContent = res.data?.error || '验证失败'; e.classList.remove('hidden'); }
+  }
+}
+
+// ---------------- 导入文件解析辅助 ----------------
+function parseImportText(text) {
+  let words;
+  if (text.trimStart().startsWith('[')) {
+    const arr = JSON.parse(text);
+    words = arr.map(w => ({
+      word: w.word, meaning: w.meaning,
+      phonetic: w.phonetic || w.phoneticUs || '', example: w.example || '', pos: w.pos || '',
+    }));
+  } else {
+    words = parseCSV(text);
+  }
+  return words;
 }
 
 // ---------------- HTML 转义 ----------------

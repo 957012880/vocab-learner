@@ -169,6 +169,31 @@
       <div class="auth-error hidden" id="pwd-error"></div>
     </div>
 
+    <!-- 邮箱验证 -->
+    <div class="card" id="email-verify-card">
+      <div class="card-title">邮箱验证</div>
+      <p class="form-hint" id="verify-status-text" style="margin-bottom:14px;">正在检查验证状态…</p>
+      <div id="verify-pending" class="hidden">
+        <div class="form-group">
+          <label class="form-label">验证码</label>
+          <div class="form-row">
+            <div class="form-group">
+              <input type="text" class="input" id="profile-verify-code" placeholder="输入 6 位验证码" maxlength="6">
+            </div>
+            <button class="btn btn-outline btn-sm" id="profile-send-code-btn" onclick="Profile.sendEmailCode()">发送验证码</button>
+          </div>
+          <div class="form-hint">验证码将发送至你的邮箱</div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary btn-sm" onclick="Profile.verifyEmail()">验证邮箱</button>
+        </div>
+      </div>
+      <div id="verify-done" class="hidden">
+        <span class="verified-badge">邮箱已验证 ✓</span>
+      </div>
+      <div class="auth-error hidden" id="profile-verify-error"></div>
+    </div>
+
     <!-- 学习统计 -->
     <div class="card card-full">
       <div class="card-title">学习统计</div>

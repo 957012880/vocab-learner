@@ -49,12 +49,10 @@ export async function onRequestGet({ request, env }) {
 
   return json({
     ok: true,
-    stats: {
-      masteredWords: masteredCount?.count || 0,
-      todayMastered: todayMastered?.count || 0,
-      totalDays: totalDays?.count || 0,
-      currentStreak: streak,
-      thisWeek: thisWeek?.count || 0,
-    }
+    masteredWords: masteredCount?.count || 0,
+    todayMastered: todayMastered?.count || 0,
+    studyDays: totalDays?.count || 0,
+    currentStreak: streak,
+    thisWeek: thisWeek?.count || 0,
   });
 }

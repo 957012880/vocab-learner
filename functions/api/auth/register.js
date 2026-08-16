@@ -1,5 +1,6 @@
 // POST /api/auth/register
 import { hashPasswordWithSalt, signJWT, verifyTurnstile, json } from '../../_lib/auth.js';
+import { sendCodeMail } from '../../_lib/smtp.js';
 
 export async function onRequestPost({ request, env }) {
   let body;
@@ -37,8 +38,19 @@ export async function onRequestPost({ request, env }) {
   const userId = info.meta?.last_row_id;
   const token = await signJWT({ sub: userId, username, role: 'member' }, env.JWT_SECRET);
 
+  // 发送邮箱验证码（真实 SMTP 或控制台兜底）
+  let devCode = null;
+  try {
+    const { devCode: dc } = await sendCodeMail({ id: userId, email }, 'email_verify', env);
+    devCode = dc;
+  } catch (e) {
+    console.error('[register] 发送验证邮件失败:', e.message);
+  }
+
   return json({
     token,
-    user: { id: userId, username, email, role: 'member' }
+    user: { id: userId, username, email, role: 'member', emailVerified: 0 },
+    needsVerification: true,
+    devCode: devCode || undefined,
   }, 201);
 }

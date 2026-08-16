@@ -12,8 +12,54 @@ const Profile = {
     }
     this.user = API.getStoredUser();
     this.loadProfile();
+    this.loadEmailVerify();
     this.loadStats();
     this.loadAchievements();
+  },
+
+  // ---------------- 邮箱验证 ----------------
+  loadEmailVerify() {
+    if (!this.user) return;
+    const pending = document.getElementById('verify-pending');
+    const done = document.getElementById('verify-done');
+    const statusText = document.getElementById('verify-status-text');
+    if (this.user.emailVerified) {
+      if (pending) pending.classList.add('hidden');
+      if (done) done.classList.remove('hidden');
+      if (statusText) statusText.textContent = '你的邮箱已经完成验证，可正常使用全部功能。';
+    } else {
+      if (pending) pending.classList.remove('hidden');
+      if (done) done.classList.add('hidden');
+      if (statusText) statusText.textContent = '你的邮箱尚未验证，请先完成验证以解锁全部功能。';
+    }
+  },
+
+  async sendEmailCode() {
+    const btn = document.getElementById('profile-send-code-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '发送中…'; }
+    const res = await API.sendVerification();
+    if (btn) { btn.disabled = false; btn.textContent = '重新发送'; }
+    if (res.ok) {
+      this.showToast(res.data?.alreadyVerified ? '邮箱已验证' : '验证码已发送，请查收邮件');
+      if (res.data?.alreadyVerified) this.loadEmailVerify();
+    } else {
+      this.showError('profile-verify-error', res.data.error || '发送失败，请稍后重试');
+    }
+  },
+
+  async verifyEmail() {
+    const code = document.getElementById('profile-verify-code')?.value.trim();
+    if (!code) return this.showError('profile-verify-error', '请输入验证码');
+    this.showError('profile-verify-error', '');
+    const res = await API.verifyEmail(code);
+    if (res.ok) {
+      this.showToast('邮箱验证成功 🎉');
+      if (this.user) { this.user.emailVerified = 1; API.setAuth(API.getToken(), this.user); }
+      this.loadProfile();
+      this.loadEmailVerify();
+    } else {
+      this.showError('profile-verify-error', res.data.error || '验证失败');
+    }
   },
 
   logout() {

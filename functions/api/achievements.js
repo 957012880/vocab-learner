@@ -68,7 +68,7 @@ export async function onRequestGet({ request, env }) {
   const achievements = ACHIEVEMENTS.map(a => ({
     ...a,
     unlocked: unlockedTypes.has(a.type),
-    unlocked_at: unlocked.find(u => u.type === a.type)?.unlocked_at,
+    unlocked_at: unlocked.results.find(u => u.type === a.type)?.unlocked_at,
   }));
 
   // 自动解锁未解锁但满足条件的成就

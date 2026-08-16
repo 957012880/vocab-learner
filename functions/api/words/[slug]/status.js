@@ -38,8 +38,8 @@ export async function onRequest({ request, env, params }) {
         INSERT INTO user_word_status (user_id, word_slug, status, answered_count, updated_at)
         VALUES (?, ?, ?, ?, datetime('now'))
         ON CONFLICT(user_id, word_slug) DO UPDATE SET
-          status = finalStatus,
-          answered_count = answered_count + 1,
+          status = excluded.status,
+          answered_count = excluded.answered_count,
           updated_at = datetime('now')
       `).bind(payload.sub, wordSlug, finalStatus, count).run();
     } else {

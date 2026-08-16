@@ -16,6 +16,12 @@
 <!-- ============ 站点公告 ============ -->
 <div id="announcement-bar" class="announcement-bar hidden"></div>
 
+<!-- ============ 邮箱未验证提示条 ============ -->
+<div id="verify-banner" class="verify-banner hidden">
+  <span>📧 你的邮箱尚未验证，部分功能受限。</span>
+  <button class="btn btn-primary btn-sm" onclick="showVerifyModal()">立即验证</button>
+</div>
+
 <!-- ============ 维护模式覆盖层 ============ -->
 <div id="maintenance-overlay" class="maintenance-overlay hidden">
   <div class="maintenance-box">
@@ -46,18 +52,29 @@
 <!-- ============ 欢迎页 ============ -->
 <section id="welcome-section" class="section section-hero">
   <div class="hero-content">
-    <h1 class="hero-title">背单词，从一本书开始 📖</h1>
-    <p class="hero-desc">词书浏览 · 点击看释义 · 标记已掌握 · 进度自动追踪</p>
+    <h1 class="hero-title">每天进步一点点，把单词变成你的 💪</h1>
+    <p class="hero-desc">智能学习 · 选择题 + 拼写双模式 · 进度自动追踪 · 成就激励</p>
     <div class="hero-actions">
-      <button class="btn btn-primary btn-lg" onclick="showAuthModal('register')">免费注册</button>
-      <button class="btn btn-outline btn-lg" onclick="startGuestMode()">游客浏览</button>
+      <button class="btn btn-primary btn-lg" onclick="showAuthModal('register')">免费注册开始学习</button>
+      <button class="btn btn-outline btn-lg" onclick="startGuestMode()">游客先体验</button>
     </div>
-    <p class="hero-note">游客模式下可浏览词书，但「已掌握」进度不会保存（需登录）</p>
+    <p class="hero-note">注册后进入「学习中心」，自动追踪你的掌握进度与连续打卡</p>
   </div>
 </section>
 
 <!-- ============ 主应用 ============ -->
 <div id="app-section" class="hidden">
+
+  <!-- 顶部视图切换：学习中心优先 -->
+  <div class="app-tabs">
+    <button class="nav-tab active" data-nav="dashboard" onclick="navTo('dashboard')">📊 学习中心</button>
+    <button class="nav-tab" data-nav="books" onclick="navTo('books')">📚 词书库</button>
+  </div>
+
+  <!-- 学习中心（仪表盘） -->
+  <section id="view-dashboard" class="hidden">
+    <div id="dashboard-content"></div>
+  </section>
 
   <!-- 词书列表视图 -->
   <section id="view-books">
@@ -147,7 +164,13 @@
     <button class="modal-close" onclick="closeImportModal()">✕</button>
     <h3 class="modal-h">导入我的单词</h3>
     <input type="text" class="input" id="import-name" placeholder="词书名，如：我的考研词汇" style="margin-bottom:10px">
-    <textarea id="import-text" class="import-textarea" placeholder="支持两种格式：&#10;&#10;格式一（JSON）：&#10;[{&quot;word&quot;:&quot;apple&quot;,&quot;meaning&quot;:&quot;苹果&quot;,&quot;phonetic&quot;:&quot;/ˈæpl/&quot;,&quot;example&quot;:&quot;I eat an apple.&quot;}, ...]&#10;&#10;格式二（CSV，首行标题）：&#10;word,meaning,phonetic,example&#10;apple,苹果,/ˈæpl/,I eat an apple."></textarea>
+    <label class="form-label">选择单词文件（JSON / CSV / TXT）</label>
+    <input type="file" id="import-file" accept=".json,.csv,.txt" class="input" style="margin-bottom:8px;">
+    <div class="form-hint" style="margin-bottom:8px;">支持 <code>[{&quot;word&quot;:&quot;apple&quot;,&quot;meaning&quot;:&quot;苹果&quot;}]</code> 或 <code>word,meaning,phonetic,example</code> 表头格式。</div>
+    <details>
+      <summary style="cursor:pointer;font-size:13px;color:var(--primary);margin-bottom:6px;">或直接粘贴文本内容</summary>
+      <textarea id="import-text" class="import-textarea" placeholder="[{&quot;word&quot;:&quot;apple&quot;,&quot;meaning&quot;:&quot;苹果&quot;}] 或 CSV 文本"></textarea>
+    </details>
     <div class="import-actions">
       <button class="btn btn-ghost" onclick="closeImportModal()">取消</button>
       <button class="btn btn-primary" onclick="doImport()">导入</button>
@@ -169,6 +192,27 @@
       <button type="submit" id="forgot-btn" class="btn btn-primary btn-block">发送验证码</button>
     </form>
     <div id="forgot-error" class="auth-error hidden"></div>
+  </div>
+</div>
+
+<!-- ============ 邮箱验证弹窗 ============ -->
+<div id="verify-modal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeVerifyModal()"></div>
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeVerifyModal()">✕</button>
+    <h3 class="modal-h">验证你的邮箱</h3>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">我们已向你的邮箱发送了 6 位验证码，请输入完成验证。</p>
+    <input type="text" class="input" id="verify-code-input" placeholder="输入 6 位验证码" maxlength="6" style="margin-bottom:12px;"
+           onkeydown="if(event.key==='Enter')submitVerifyCode()">
+    <div class="import-actions">
+      <button class="btn btn-ghost" onclick="closeVerifyModal()">稍后</button>
+      <button class="btn btn-primary" id="verify-submit-btn" onclick="submitVerifyCode()">验证</button>
+    </div>
+    <div class="auth-actions" style="margin-top:12px;">
+      <button class="btn btn-link btn-sm" id="verify-send-btn" onclick="sendVerifyCode()">重新发送验证码</button>
+    </div>
+    <div id="verify-error" class="auth-error hidden"></div>
+    <div id="verify-success" class="card-success hidden">✅ 邮箱已验证</div>
   </div>
 </div>
 

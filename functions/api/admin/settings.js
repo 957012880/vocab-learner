@@ -21,7 +21,10 @@ export async function onRequestPost({ request, env }) {
   let body;
   try { body = await request.json(); } catch { return json({ error: '请求格式错误' }, 400); }
 
-  const allowed = ['site_name', 'allow_register', 'maintenance_mode', 'guest_browse', 'announcement'];
+  const allowed = [
+    'site_name', 'allow_register', 'maintenance_mode', 'guest_browse', 'announcement',
+    'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'smtp_from', 'smtp_secure',
+  ];
   const updates = Object.entries(body).filter(([k]) => allowed.includes(k));
   if (!updates.length) return json({ error: '没有可更新的字段' }, 400);
 

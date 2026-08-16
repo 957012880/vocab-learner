@@ -144,6 +144,45 @@
       <div class="auth-error hidden" id="settings-error"></div>
     </div>
   </div>
+
+  <!-- 邮件（SMTP）配置面板 -->
+  <div class="panel" id="smtp-panel">
+    <h2>📧 邮件服务（SMTP）</h2>
+    <p style="font-size:13px;color:var(--text-muted);margin:-8px 0 16px;">配置后，注册验证、密码重置等邮件将通过 SMTP 真实发送。未配置时验证码仅记录到服务端日志（便于测试）。</p>
+    <div class="settings-grid">
+      <label class="setting-row">
+        <span class="setting-label">SMTP 服务器</span>
+        <input type="text" class="input" id="set-smtp_host" placeholder="smtp.example.com">
+      </label>
+      <label class="setting-row">
+        <span class="setting-label">端口</span>
+        <input type="number" class="input" id="set-smtp_port" placeholder="587">
+      </label>
+      <label class="setting-row">
+        <span class="setting-label">用户名 / 邮箱</span>
+        <input type="text" class="input" id="set-smtp_user" placeholder="user@example.com">
+      </label>
+      <label class="setting-row">
+        <span class="setting-label">密码 / 授权码</span>
+        <input type="password" class="input" id="set-smtp_password" placeholder="授权码（非登录密码）">
+      </label>
+      <label class="setting-row">
+        <span class="setting-label">发件人地址</span>
+        <input type="text" class="input" id="set-smtp_from" placeholder="noreply@example.com">
+      </label>
+      <label class="setting-row">
+        <span class="setting-label">加密方式</span>
+        <select class="input" id="set-smtp_secure">
+          <option value="false">STARTTLS（端口 587）</option>
+          <option value="true">隐式 TLS（端口 465）</option>
+        </select>
+      </label>
+    </div>
+    <div class="settings-actions">
+      <button class="btn btn-primary" onclick="Admin.saveSettings()">保存设置</button>
+    </div>
+    <div class="auth-error hidden" id="smtp-error"></div>
+  </div>
 </div>
 
 <div id="toast" class="toast hidden"></div>

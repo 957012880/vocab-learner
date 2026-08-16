@@ -131,6 +131,14 @@ async function loadSettings() {
   document.getElementById('set-guest-browse').value = s.guest_browse ?? '1';
   document.getElementById('set-maintenance').value = s.maintenance_mode ?? '0';
   document.getElementById('set-announcement').value = s.announcement || '';
+  // SMTP 配置回填
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+  setVal('set-smtp_host', s.smtp_host);
+  setVal('set-smtp_port', s.smtp_port);
+  setVal('set-smtp_user', s.smtp_user);
+  setVal('set-smtp_password', s.smtp_password);
+  setVal('set-smtp_from', s.smtp_from);
+  setVal('set-smtp_secure', s.smtp_secure ?? 'false');
   document.getElementById('settings-form').classList.remove('hidden');
 }
 
@@ -143,6 +151,12 @@ async function saveSettings() {
     guest_browse: document.getElementById('set-guest-browse').value,
     maintenance_mode: document.getElementById('set-maintenance').value,
     announcement: document.getElementById('set-announcement').value.trim(),
+    smtp_host: document.getElementById('set-smtp_host').value.trim(),
+    smtp_port: document.getElementById('set-smtp_port').value.trim() || '587',
+    smtp_user: document.getElementById('set-smtp_user').value.trim(),
+    smtp_password: document.getElementById('set-smtp_password').value,
+    smtp_from: document.getElementById('set-smtp_from').value.trim(),
+    smtp_secure: document.getElementById('set-smtp_secure').value,
   };
   const res = await API.updateSettings(settings);
   if (res.ok) {
