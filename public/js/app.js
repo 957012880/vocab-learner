@@ -34,8 +34,8 @@ async function loadConfig() {
     const res = await API.config();
     if (res.ok) {
       TS.enabled = !!res.data.turnstileEnabled;
-      TS.siteKey = res.data.turnstileSiteKey || '';
-      console.log('[Turnstile] enabled:', TS.enabled, 'siteKey:', TS.siteKey ? '✅' : '❌');
+      TS.siteKey = String(res.data.turnstileSiteKey || '');
+      console.log('[Turnstile] enabled:', TS.enabled, 'siteKey:', TS.siteKey, 'type:', typeof TS.siteKey);
       App.config = {
         siteName: res.data.siteName || '单词书库',
         allowRegister: res.data.allowRegister !== false,
@@ -93,22 +93,22 @@ function renderTurnstile(tab) {
   doRender();
 
   function doRender() {
-    try {
-      TS[key] = window.turnstile.render(el, {
-        sitekey: TS.siteKey,
-        theme: 'light',
-        callback: (token) => {
-          console.log('[Turnstile] Token received:', token ? '✅' : '❌');
-        },
-        'expired-callback': () => {
-          console.log('[Turnstile] Widget expired, resetting');
-          if (TS[key]) try { window.turnstile.reset(TS[key]); } catch {}
-          TS[key] = null;
-        },
-      });
-      console.log('[Turnstile] Widget rendered:', TS[key]);
-    } catch (e) {
-      console.error('[Turnstile] Render error:', e);
+      try {
+        TS[key] = window.turnstile.render(el, {
+          sitekey: String(TS.siteKey) || '0x0000000000000000000000',
+          theme: 'light',
+          callback: (token) => {
+            console.log('[Turnstile] Token received:', token ? '✅' : '❌');
+          },
+          'expired-callback': () => {
+            console.log('[Turnstile] Widget expired, resetting');
+            if (TS[key]) try { window.turnstile.reset(TS[key]); } catch {}
+            TS[key] = null;
+          },
+        });
+      } catch (e) {
+        console.error('[Turnstile] Render error:', e);
+      }
     }
   }
 }
