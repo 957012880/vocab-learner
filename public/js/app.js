@@ -28,12 +28,14 @@ window.addEventListener('unhandledrejection', e => showErrorBanner('请求异常
 
 // ---------------- Cloudflare Turnstile 状态 ----------------
 const TS = { enabled: false, siteKey: '', loginWidget: null, regWidget: null };
+
 async function loadConfig() {
   try {
     const res = await API.config();
     if (res.ok) {
       TS.enabled = !!res.data.turnstileEnabled;
       TS.siteKey = res.data.turnstileSiteKey || '';
+      console.log('[Turnstile] enabled:', TS.enabled, 'siteKey:', TS.siteKey ? '✅' : '❌');
       App.config = {
         siteName: res.data.siteName || '单词书库',
         allowRegister: res.data.allowRegister !== false,
@@ -43,8 +45,74 @@ async function loadConfig() {
       };
       applyConfig();
     }
-  } catch { /* 配置缺失不阻塞页面 */ }
+  } catch (e) {
+    console.warn('[Turnstile] Config load failed:', e.message);
+    TS.enabled = false;
+  }
 }
+
+function renderTurnstile(tab) {
+  if (!TS.enabled) {
+    console.log('[Turnstile] Disabled, skipping render');
+    return;
+  }
+  const key = tab === 'login' ? 'loginWidget' : 'regWidget';
+  const container = tab === 'login' ? 'cf-turnstile-login' : 'cf-turnstile-register';
+  const el = document.getElementById(container);
+  if (!el) {
+    console.error('[Turnstile] Container not found:', container);
+    return;
+  }
+
+  // 已渲染过则 reset 重用
+  if (TS[key]) {
+    try { window.turnstile?.reset(TS[key]); } catch {}
+    return;
+  }
+
+  // 检查 Turnstile 脚本是否已加载
+  if (!window.turnstile) {
+    console.warn('[Turnstile] Script not loaded yet, waiting...');
+    // 等待 Turnstile 脚本加载
+    const waitScript = setInterval(() => {
+      if (window.turnstile) {
+        clearInterval(waitScript);
+        doRender();
+      }
+    }, 100);
+    // 超时 5 秒
+    setTimeout(() => {
+      clearInterval(waitScript);
+      if (!TS[key]) {
+        console.error('[Turnstile] Script not loaded after 5s');
+      }
+    }, 5000);
+    return;
+  }
+
+  doRender();
+
+  function doRender() {
+    try {
+      TS[key] = window.turnstile.render(el, {
+        sitekey: TS.siteKey,
+        theme: 'light',
+        callback: (token) => {
+          console.log('[Turnstile] Token received:', token ? '✅' : '❌');
+        },
+        'expired-callback': () => {
+          console.log('[Turnstile] Widget expired, resetting');
+          if (TS[key]) try { window.turnstile.reset(TS[key]); } catch {}
+          TS[key] = null;
+        },
+      });
+      console.log('[Turnstile] Widget rendered:', TS[key]);
+    } catch (e) {
+      console.error('[Turnstile] Render error:', e);
+    }
+  }
+}
+
 function applyConfig() {
   const c = App.config;
   // 站点名称
@@ -63,32 +131,6 @@ function applyConfig() {
   // 是否允许注册
   const regBtn = document.querySelector('.auth-tab[data-auth="register"]');
   if (regBtn) regBtn.classList.toggle('hidden', !c.allowRegister);
-}
-function renderTurnstile(tab) {
-  if (!TS.enabled) return;
-  const key = tab === 'login' ? 'loginWidget' : 'regWidget';
-  const container = tab === 'login' ? 'cf-turnstile-login' : 'cf-turnstile-register';
-  const el = document.getElementById(container);
-  if (!el) return;
-  // 已渲染过则 reset 重用
-  if (TS[key]) { try { window.turnstile.reset(TS[key]); } catch {} return; }
-  // Turnstile 脚本是 async defer 加载，可能还没就绪 —— 轮询等待
-  let tries = 0;
-  const tryRender = () => {
-    if (window.turnstile) {
-      try {
-        TS[key] = window.turnstile.render(el, {
-          sitekey: TS.siteKey,
-          theme: 'light',
-          callback: () => {},
-          'expired-callback': () => { if (TS[key]) try { window.turnstile.reset(TS[key]); } catch {} },
-        });
-      } catch (e) { console.warn('Turnstile render error:', e); }
-    } else if (tries++ < 30) {
-      setTimeout(tryRender, 200);  // 每 200ms 重试，最多 6 秒
-    }
-  };
-  tryRender();
 }
 function getTurnstileToken(tab) {
   if (!TS.enabled || !window.turnstile) return '';
