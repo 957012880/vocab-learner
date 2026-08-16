@@ -27,8 +27,16 @@ export async function onRequestPost({ request, env }) {
     : await verifyPassword(password, user.password_hash);
   if (!ok) return json({ error: '密码错误' }, 401);
 
-  // 更新最后登录时间
-  await db.prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?").bind(user.id).run();
+  // 更新最后登录时间和登录次数
+  await db.prepare("UPDATE users SET last_login = datetime('now'), login_count = login_count + 1 WHERE id = ?").bind(user.id).run();
+
+  // 首次登录成就
+  const prevLogin = user.last_login;
+  if (!prevLogin) {
+    await db.prepare(
+      "INSERT OR IGNORE INTO achievements (user_id, type, name, description) VALUES (?, 'first_login', '初次登录', '首次登录系统')"
+    ).bind(user.id).run();
+  }
 
   const token = await signJWT({ sub: user.id, username: user.username, role: user.role }, env.JWT_SECRET);
 

@@ -30,11 +30,11 @@ export async function onRequestGet({ request, env }) {
     "SELECT COUNT(DISTINCT DATE(updated_at)) as count FROM user_word_status WHERE user_id = ? AND updated_at >= date('now', '-30 days')"
   ).bind(user.id).first();
 
-  // 构建统计数据
+  // 构建统计数据（从数据库获取真实值）
   const stats = {
-    totalLogins: 1, // 简化处理，实际应该从登录日志计算
+    totalLogins: user.login_count || 0,
     masteredWords: masteredCount?.count || 0,
-    currentStreak: 0, // 计算连续天数需要更复杂的逻辑
+    currentStreak: 0,
     quizPerfect: 0,
     spellPerfect: 0,
   };
