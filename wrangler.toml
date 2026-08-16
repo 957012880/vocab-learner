@@ -12,9 +12,7 @@ pages_build_output_dir = "public"
 [[d1_databases]]
 binding = "DB"
 database_name = "vocab-db"
-database_id = "YOUR_DATABASE_ID_HERE"
+database_id = "127f4036-91f3-45f5-b6ee-838a20140f99"
 
-# 环境变量 (JWT 密钥)
-# 生产环境建议用 wrangler secret put JWT_SECRET 设置
-[vars]
-JWT_SECRET = "change-this-to-a-random-secret-string"
+# JWT 密钥已通过 `wrangler pages secret put JWT_SECRET` 注入（服务端存储，不进仓库）。
+# Functions 中通过 env.JWT_SECRET 读取，无需在此 [vars] 中重复定义（否则会报绑定名冲突）。

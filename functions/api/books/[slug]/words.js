@@ -1,6 +1,6 @@
 // GET /api/books/:slug/words  — 获取某词书的单词列表（分页，客户端循环拉取全部）
 // 返回每个单词的当前用户状态 status: new | learning | mastered
-import { getAuthUser, json } from '../../_lib/auth.js';
+import { getAuthUser, json } from '../../../_lib/auth.js';
 
 export async function onRequestGet({ request, env, params }) {
   const slug = params.slug;

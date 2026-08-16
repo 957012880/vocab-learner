@@ -6,6 +6,8 @@ const { spawnSync } = require('child_process');
 
 const dir = 'scripts/seed_parts';
 const db = 'vocab-db';
+const wranglerBin = path.join('node_modules', 'wrangler', 'bin', 'wrangler.js');
+const nodeBin = process.execPath; // 使用运行本脚本的 node（managed node）
 
 const files = fs.readdirSync(dir)
   .filter(f => f.endsWith('.sql'))
@@ -18,7 +20,7 @@ for (const f of files) {
   const fp = path.join(dir, f);
   const sizeMB = (fs.statSync(fp).size / 1024 / 1024).toFixed(2);
   process.stdout.write(`▶ [${ok + 1}/${files.length}] ${f} (${sizeMB} MB) ... `);
-  const r = spawnSync('npx', ['wrangler', 'd1', 'execute', db, '--file=' + fp, '--remote'], {
+  const r = spawnSync(nodeBin, [wranglerBin, 'd1', 'execute', db, '--file=' + fp, '--remote'], {
     stdio: 'inherit',
   });
   if (r.status !== 0) {

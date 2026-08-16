@@ -6,7 +6,15 @@ scripts/.tmp/
 scripts/seed.sql
 scripts/seed.old.sql
 scripts/seed.good.sql
+scripts/seed_parts/
 scripts/*.log
+
+# 临时调试脚本（一次性，不入库）
+scripts/_checktoken.cjs
+scripts/validate.cjs
+scripts/clean.cjs
+scripts/finalize.cjs
+scripts/gen-admin.cjs
 
 # 本地/临时
 .fill

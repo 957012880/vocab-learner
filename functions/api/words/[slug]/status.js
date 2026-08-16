@@ -1,6 +1,6 @@
 // GET|POST /api/words/:slug/status  — 获取/设置某个单词的学习状态
 // word_slug 为全局唯一词 ID（如 CET4_1_1 或用户自建的 u12_xxx_3）
-import { getAuthUser, json } from '../../_lib/auth.js';
+import { getAuthUser, json } from '../../../_lib/auth.js';
 
 export async function onRequest({ request, env, params }) {
   const payload = await getAuthUser(request, env);
