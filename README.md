@@ -217,3 +217,47 @@ Pages Functions 在「冷启动」时首次请求会稍慢（几秒）。D1 在�
 ## 六、费用说明
 
 Cloudflare Pages + D1 对个人项目均有免费额度，正常学习使用基本零成本。
+
+---
+
+## 七、管理后台与用户管理
+
+管理员登录后，导航栏会出现「管理后台」入口（或直接访问 `/admin/`），可进行用户管理：
+
+- **用户列表**：ID、用户名、邮箱、角色、已掌握词数、注册/登录时间。
+- **新增用户**：填写用户名、邮箱、密码、角色（会员/管理员）。
+- **重置密码**：为任意用户设置新密码（无需知道旧密码）。
+- **删除用户**：删除用户及其学习进度；禁止删除自己、禁止删除最后一个管理员。
+
+管理员账号：用户名 `admin`，密码 `admin123`（部署后请尽快在后台改密）。
+
+后端接口（均要求 `admin` 角色）：
+- `GET  /api/admin/members` — 列表
+- `POST /api/admin/members` — 新增 `{username,email,password,role}`
+- `DELETE /api/admin/members/:id` — 删除
+- `POST /api/admin/members/:id/reset-password` — 重置密码 `{password}`
+
+---
+
+## 八、开启 Cloudflare Turnstile 人机验证（登录/注册防刷）
+
+默认未开启，登录/注册无需验证即可使用。如需开启：
+
+1. 在 Cloudflare 控制台 → **Turnstile** → 创建 Widget，得到 **Site Key** 与 **Secret Key**。
+   （Widget 的 Domains 里加上你的站点域名，如 `vocab-learner.pages.dev`）
+2. 注入密钥（需有 Pages:Edit 权限的 CF API Token）：
+   ```bash
+   npx wrangler pages secret put TURNSTILE_SITE_KEY --project-name vocab-learner
+   npx wrangler pages secret put TURNSTILE_SECRET   --project-name vocab-learner
+   ```
+   按提示分别粘贴 Site Key 与 Secret Key。
+3. 重新部署一次：
+   ```bash
+   npx wrangler pages deploy public
+   ```
+
+开启后：
+- 登录/注册表单会出现 Turnstile 验证框，**必须完成验证才能提交**。
+- 前端通过 `GET /api/config` 自动判断是否启用（无需改代码）。
+- 未设置 `TURNSTILE_SECRET` 时自动放行，方便本地开发与灰度。
+

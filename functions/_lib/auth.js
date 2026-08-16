@@ -86,6 +86,37 @@ async function getAuthUser(request, env) {
   return payload; // { sub, username, role }
 }
 
+// 校验管理员身份，返回 payload；非管理员或未登录返回 null
+async function requireAdmin(request, env) {
+  const payload = await getAuthUser(request, env);
+  if (!payload || payload.role !== 'admin') return null;
+  return payload;
+}
+
+// ---------- Cloudflare Turnstile 人机验证 ----------
+// 未配置 TURNSTILE_SECRET 时自动放行（方便本地/未开启时不影响登录）。
+// 配置后：缺少 token 或校验失败一律拒绝。
+async function verifyTurnstile(token, env, ip) {
+  if (!env.TURNSTILE_SECRET) return true; // 未开启验证
+  if (!token) return false;               // 已开启但前端未提交 token
+  try {
+    const body = new URLSearchParams({
+      secret: env.TURNSTILE_SECRET,
+      response: token,
+    });
+    if (ip) body.set('remoteip', ip);
+    const resp = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    const data = await resp.json();
+    return !!data.success;
+  } catch {
+    return false;
+  }
+}
+
 // ---------- 响应封装 ----------
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -100,5 +131,5 @@ function json(data, status = 200) {
 export {
   signJWT, verifyJWT,
   hashPassword, hashPasswordWithSalt, verifyPassword,
-  getAuthUser, json
+  getAuthUser, requireAdmin, verifyTurnstile, json
 };

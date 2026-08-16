@@ -1,12 +1,18 @@
 // POST /api/auth/login
-import { hashPasswordWithSalt, verifyPassword, signJWT, json } from '../../_lib/auth.js';
+import { hashPasswordWithSalt, verifyPassword, signJWT, verifyTurnstile, json } from '../../_lib/auth.js';
 
 export async function onRequestPost({ request, env }) {
   let body;
   try { body = await request.json(); } catch { return json({ error: '请求格式错误' }, 400); }
 
-  const { identifier, password } = body;
+  const { identifier, password, turnstileToken } = body;
   if (!identifier || !password) return json({ error: '用户名/邮箱和密码均为必填' }, 400);
+
+  // Cloudflare Turnstile 人机验证（开启后强制）
+  const ip = request.headers.get('cf-connecting-ip');
+  if (!(await verifyTurnstile(turnstileToken, env, ip))) {
+    return json({ error: '请完成人机验证（Turnstile）' }, 403);
+  }
 
   const db = env.DB;
   // identifier 可以是用户名或邮箱

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理后台 | 单词书库</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .admin-wrap { max-width: 1000px; margin: 0 auto; padding: 24px 20px 60px; }
+    .admin-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .admin-head h1 { font-size: 22px; margin: 0; }
+    .admin-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 22px; }
+    .stat-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; }
+    .stat-card .n { font-size: 26px; font-weight: 700; color: var(--primary); }
+    .stat-card .l { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+    .panel { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 22px; }
+    .panel h2 { font-size: 16px; margin: 0 0 14px; }
+    table.members { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table.members th, table.members td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+    table.members th { color: var(--text-muted); font-weight: 600; font-size: 13px; }
+    .role-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+    .role-badge.admin { background: #fde68a; color: #92400e; }
+    .role-badge.member { background: var(--primary-light); color: var(--primary); }
+    .row-actions { display: flex; gap: 8px; }
+    .add-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .add-form .full { grid-column: 1 / -1; }
+    .add-form .actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; }
+    @media (max-width: 560px) { .add-form { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-brand">
+    <span class="nav-logo">🛠️</span>
+    <span class="nav-title">管理后台</span>
+  </div>
+  <div class="nav-actions">
+    <a class="btn btn-ghost btn-sm" href="/">← 返回首页</a>
+    <button class="btn btn-ghost btn-sm" onclick="Admin.logout()">退出</button>
+  </div>
+</nav>
+
+<div class="admin-wrap">
+  <div class="admin-head">
+    <h1>用户管理</h1>
+    <span id="admin-name" class="badge badge-admin"></span>
+  </div>
+
+  <div class="admin-cards" id="stat-cards">
+    <div class="stat-card"><div class="n" id="stat-total">–</div><div class="l">用户总数</div></div>
+    <div class="stat-card"><div class="n" id="stat-admin">–</div><div class="l">管理员</div></div>
+    <div class="stat-card"><div class="n" id="stat-member">–</div><div class="l">普通会员</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>新增用户</h2>
+    <div class="add-form">
+      <input type="text" class="input" id="add-username" placeholder="用户名 (3-20字符)">
+      <input type="email" class="input" id="add-email" placeholder="邮箱">
+      <input type="password" class="input" id="add-password" placeholder="密码 (至少6位)">
+      <select class="input" id="add-role">
+        <option value="member">普通会员</option>
+        <option value="admin">管理员</option>
+      </select>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="Admin.add()">添加用户</button>
+      </div>
+      <div class="full auth-error hidden" id="add-error"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>用户列表</h2>
+    <div id="members-loading" class="empty-hint">加载中…</div>
+    <table class="members hidden" id="members-table">
+      <thead>
+        <tr>
+          <th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th>
+          <th>已掌握词</th><th>注册时间</th><th>最近登录</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="members-body"></tbody>
+    </table>
+    <div id="members-empty" class="empty-hint hidden">暂无用户</div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="/js/api.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

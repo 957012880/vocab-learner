@@ -26,13 +26,16 @@ const API = {
   },
 
   // 认证
-  register(username, email, password) {
-    return this.request('/api/auth/register', { method: 'POST', body: JSON.stringify({ username, email, password }) });
+  register(username, email, password, turnstileToken = '') {
+    return this.request('/api/auth/register', { method: 'POST', body: JSON.stringify({ username, email, password, turnstileToken }) });
   },
-  login(identifier, password) {
-    return this.request('/api/auth/login', { method: 'POST', body: JSON.stringify({ identifier, password }) });
+  login(identifier, password, turnstileToken = '') {
+    return this.request('/api/auth/login', { method: 'POST', body: JSON.stringify({ identifier, password, turnstileToken }) });
   },
   me() { return this.request('/api/auth/me'); },
+
+  // 公开配置（Turnstile 等）
+  config() { return this.request('/api/config'); },
 
   // 词书
   getBooks() { return this.request('/api/books'); },
@@ -51,4 +54,13 @@ const API = {
   // 进度 / 会员
   getProgress() { return this.request('/api/progress'); },
   getMembers() { return this.request('/api/admin/members'); },
+  createMember(username, email, password, role) {
+    return this.request('/api/admin/members', { method: 'POST', body: JSON.stringify({ username, email, password, role }) });
+  },
+  deleteMember(id) {
+    return this.request(`/api/admin/members/${id}`, { method: 'DELETE' });
+  },
+  resetMemberPassword(id, password) {
+    return this.request(`/api/admin/members/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ password }) });
+  },
 };

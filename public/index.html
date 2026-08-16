@@ -5,8 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>单词书库 | Vocab Learner</title>
   <link rel="stylesheet" href="/css/style.css">
+  <!-- Cloudflare Turnstile（人机验证）。未配置站点密钥时不会渲染。 -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
+
+<!-- ============ 全局错误提示（任何 JS / 接口异常都会显示在这里，避免静默失败） ============ -->
+<div id="error-banner" class="error-banner hidden"></div>
 
 <!-- ============ 顶部导航 ============ -->
 <nav class="navbar">
@@ -15,6 +20,7 @@
     <span class="nav-title">单词书库</span>
   </div>
   <div class="nav-actions">
+    <a id="nav-admin-btn" class="btn btn-ghost btn-sm hidden" href="/admin/">管理后台</a>
     <div id="nav-user" class="nav-user hidden">
       <span id="nav-username" class="nav-username"></span>
       <span id="nav-role" class="badge badge-admin hidden">管理员</span>
@@ -104,12 +110,14 @@
     <form id="login-form" class="auth-form" onsubmit="doLogin(event)">
       <input type="text" class="input" id="login-username" placeholder="用户名或邮箱" required>
       <input type="password" class="input" id="login-password" placeholder="密码" required>
+      <div id="cf-turnstile-login" class="cf-turnstile"></div>
       <button type="submit" class="btn btn-primary btn-block">登录</button>
     </form>
     <form id="register-form" class="auth-form hidden" onsubmit="doRegister(event)">
       <input type="text" class="input" id="reg-username" placeholder="用户名 (3-20字符)" required minlength="3" maxlength="20">
       <input type="email" class="input" id="reg-email" placeholder="邮箱" required>
       <input type="password" class="input" id="reg-password" placeholder="密码 (至少6位)" required minlength="6">
+      <div id="cf-turnstile-register" class="cf-turnstile"></div>
       <button type="submit" class="btn btn-primary btn-block">注册</button>
     </form>
     <div id="auth-error" class="auth-error hidden"></div>

@@ -13,6 +13,51 @@ const App = {
   revealed: new Set(),   // 当前已展开释义的 word slug
 };
 
+// ---------------- 全局错误提示（避免点击“毫无反应”却无提示） ----------------
+function showErrorBanner(msg) {
+  const b = document.getElementById('error-banner');
+  if (!b) return;
+  b.textContent = '⚠️ ' + msg;
+  b.classList.remove('hidden');
+  clearTimeout(b._timer);
+  b._timer = setTimeout(() => b.classList.add('hidden'), 6000);
+}
+window.addEventListener('error', e => showErrorBanner((e.message || '脚本错误') + (e.filename ? ' @' + e.filename.split('/').pop() : '')));
+window.addEventListener('unhandledrejection', e => showErrorBanner('请求异常：' + ((e.reason && e.reason.message) || e.reason || '未知错误')));
+
+// ---------------- Cloudflare Turnstile 状态 ----------------
+const TS = { enabled: false, siteKey: '', loginWidget: null, regWidget: null };
+async function loadConfig() {
+  try {
+    const res = await API.config();
+    if (res.ok) { TS.enabled = !!res.data.turnstileEnabled; TS.siteKey = res.data.turnstileSiteKey || ''; }
+  } catch { /* 配置缺失不阻塞页面 */ }
+}
+function renderTurnstile(tab) {
+  if (!TS.enabled || !window.turnstile) return;
+  const key = tab === 'login' ? 'loginWidget' : 'regWidget';
+  const container = tab === 'login' ? 'cf-turnstile-login' : 'cf-turnstile-register';
+  const el = document.getElementById(container);
+  if (!el) return;
+  if (TS[key]) { try { window.turnstile.reset(TS[key]); } catch {} return; }
+  TS[key] = window.turnstile.render(el, {
+    sitekey: TS.siteKey,
+    theme: 'light',
+    callback: () => {},           // 校验通过回调
+    'expired-callback': () => { if (TS[key]) try { window.turnstile.reset(TS[key]); } catch {} },
+  });
+}
+function getTurnstileToken(tab) {
+  if (!TS.enabled || !window.turnstile) return '';
+  const key = tab === 'login' ? 'loginWidget' : 'regWidget';
+  if (!TS[key]) return '';
+  return window.turnstile.getResponse(TS[key]) || '';
+}
+function resetTurnstile() {
+  if (!TS.enabled || !window.turnstile) return;
+  ['loginWidget', 'regWidget'].forEach(k => { if (TS[k]) { try { window.turnstile.reset(TS[k]); } catch {} TS[k] = null; } });
+}
+
 // ---------------- 工具 ----------------
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -457,34 +502,39 @@ async function doImport() {
 
 // ---------------- 认证 ----------------
 function showAuthModal(tab) { document.getElementById('auth-modal').classList.remove('hidden'); switchAuthTab(tab || 'login'); }
-function closeAuthModal() { document.getElementById('auth-modal').classList.add('hidden'); }
+function closeAuthModal() { document.getElementById('auth-modal').classList.add('hidden'); resetTurnstile(); }
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
   document.querySelector(`.auth-tab[data-auth="${tab}"]`)?.classList.add('active');
   document.getElementById('login-form').classList.toggle('hidden', tab !== 'login');
   document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
   document.getElementById('auth-error').classList.add('hidden');
+  renderTurnstile(tab);
 }
 function showAuthError(msg) { const e = document.getElementById('auth-error'); e.textContent = msg; e.classList.remove('hidden'); }
 
 async function doRegister(e) {
   e.preventDefault();
+  if (TS.enabled && !getTurnstileToken('register')) return showAuthError('请先完成人机验证（点一下验证框）');
   const res = await API.register(
     document.getElementById('reg-username').value.trim(),
     document.getElementById('reg-email').value.trim(),
-    document.getElementById('reg-password').value
+    document.getElementById('reg-password').value,
+    getTurnstileToken('register')
   );
   if (res.ok) { API.setAuth(res.data.token, res.data.user); onLoggedIn(res.data.user); closeAuthModal(); showToast('注册成功，欢迎！'); }
-  else showAuthError(res.data.error || '注册失败');
+  else { showAuthError(res.data.error || '注册失败'); resetTurnstile(); }
 }
 async function doLogin(e) {
   e.preventDefault();
+  if (TS.enabled && !getTurnstileToken('login')) return showAuthError('请先完成人机验证（点一下验证框）');
   const res = await API.login(
     document.getElementById('login-username').value.trim(),
-    document.getElementById('login-password').value
+    document.getElementById('login-password').value,
+    getTurnstileToken('login')
   );
   if (res.ok) { API.setAuth(res.data.token, res.data.user); onLoggedIn(res.data.user); closeAuthModal(); showToast('登录成功！'); }
-  else showAuthError(res.data.error || '登录失败');
+  else { showAuthError(res.data.error || '登录失败'); resetTurnstile(); }
 }
 async function logout() {
   API.clearAuth(); App.isGuest = false; App.isAdmin = false; App.book = null;
@@ -500,6 +550,7 @@ function onLoggedIn(user) {
   document.getElementById('nav-user').classList.remove('hidden');
   document.getElementById('nav-username').textContent = user.username;
   document.getElementById('nav-role')?.classList.toggle('hidden', !App.isAdmin);
+  document.getElementById('nav-admin-btn')?.classList.toggle('hidden', !App.isAdmin);
   document.getElementById('import-book-btn')?.classList.toggle('hidden', !API.isLoggedIn());
   showApp(); loadBooks();
 }
@@ -510,6 +561,7 @@ function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }
 
 // ---------------- 初始化 ----------------
 async function init() {
+  await loadConfig();
   if (API.isLoggedIn()) {
     const res = await API.me();
     if (res.ok) { onLoggedIn(res.data.user); return; }
