@@ -86,6 +86,20 @@ async function getAuthUser(request, env) {
   return payload; // { sub, username, role }
 }
 
+// 已登录用户校验，返回完整用户行（含 email 等字段）；未登录返回 null
+async function requireAuth(request, env) {
+  const payload = await getAuthUser(request, env);
+  if (!payload) return null;
+  const db = env.DB;
+  try {
+    const user = await db.prepare('SELECT id, username, email, role, email_verified FROM users WHERE id = ?')
+      .bind(payload.sub).first();
+    return user || null;
+  } catch {
+    return null;
+  }
+}
+
 // 校验管理员身份，返回 payload；非管理员或未登录返回 null
 async function requireAdmin(request, env) {
   const payload = await getAuthUser(request, env);
@@ -131,5 +145,10 @@ function json(data, status = 200) {
 export {
   signJWT, verifyJWT,
   hashPassword, hashPasswordWithSalt, verifyPassword,
-  getAuthUser, requireAdmin, verifyTurnstile, json
+  getAuthUser, requireAuth, requireAdmin, verifyTurnstile, json
 };
+
+export {
+  generateCode, generateToken, buildEmailBody,
+  getSmtpConfig, sendVerificationEmail, sendResetEmail
+} from './smtp.js';

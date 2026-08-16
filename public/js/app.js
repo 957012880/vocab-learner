@@ -669,6 +669,43 @@ function onLoggedIn(user) {
   showApp(); loadBooks();
 }
 
+// ---------------- 忘记密码弹窗 ----------------
+function showForgotModal() {
+  const modal = document.getElementById('forgot-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  document.getElementById('forgot-error').classList.add('hidden');
+}
+function closeForgotModal() {
+  const modal = document.getElementById('forgot-modal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  document.getElementById('forgot-error').classList.add('hidden');
+}
+async function doForgotPassword(e) {
+  e.preventDefault();
+  const identifier = document.getElementById('forgot-identifier').value.trim();
+  if (!identifier) return showForgotError('请输入用户名或邮箱');
+  setLoading('forgot-btn', true, '发送');
+  const res = await API.forgotPassword(identifier);
+  setLoading('forgot-btn', false, '发送');
+  if (res.ok) {
+    showForgotError('验证码已发送至您的邮箱，请查收后重置密码。', true);
+  } else {
+    showForgotError(res.data.error || '发送失败');
+  }
+}
+function showForgotError(msg, success) {
+  const el = document.getElementById('forgot-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  el.style.background = success ? 'var(--green-light)' : '';
+  el.style.color = success ? 'var(--green)' : '';
+  el.style.borderColor = success ? 'var(--green)' : '';
+  if (success) setTimeout(() => closeForgotModal(), 4000);
+}
+
 // ---------------- HTML 转义 ----------------
 function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }

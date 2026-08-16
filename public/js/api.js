@@ -67,4 +67,19 @@ const API = {
   updateSettings(settings) {
     return this.request('/api/admin/settings', { method: 'POST', body: JSON.stringify(settings) });
   },
+
+  // 个人资料
+  getProfile() { return this.request('/api/auth/profile'); },
+  updateProfile(data) { return this.request('/api/auth/profile', { method: 'PUT', body: JSON.stringify(data) }); },
+  changePassword(currentPw, newPw, emailCode) {
+    return this.request('/api/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw, emailCode }) });
+  },
+  sendVerification() { return this.request('/api/auth/send-verification', { method: 'POST' }); },
+  verifyEmail(code) { return this.request('/api/auth/verify-email', { method: 'POST', body: JSON.stringify({ code }) }); },
+  forgotPassword(identifier) { return this.request('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ identifier }) }); },
+  resetPassword(code, password) { return this.request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ code, password }) }); },
+
+  // 学习统计 / 成就
+  getStats() { return this.request('/api/progress/stats'); },
+  getAchievements() { return this.request('/api/achievements'); },
 };

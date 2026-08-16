@@ -10,7 +10,12 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   role TEXT DEFAULT 'member',          -- member | admin
   created_at TEXT DEFAULT (datetime('now')),
-  last_login TEXT
+  last_login TEXT,
+  email_verified INTEGER DEFAULT 0,
+  verify_token TEXT,
+  reset_token TEXT,
+  verify_token_expires TEXT,
+  reset_token_expires TEXT
 );
 
 -- 词书（系统内置 + 用户自建）
@@ -78,6 +83,38 @@ INSERT OR IGNORE INTO sys_config (key, value) VALUES
   ('maintenance_mode', '0'),       -- 1=维护模式(仅管理员可访问) 0=正常
   ('guest_browse', '1'),           -- 1=允许游客浏览 0=必须登录
   ('announcement', '');            -- 公告文本(空=不显示)
+
+-- 认证令牌（邮箱验证 / 密码重置）
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  type TEXT NOT NULL DEFAULT 'email_verify',  -- 'email_verify' | 'password_reset'
+  code TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  used INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 成就
+CREATE TABLE IF NOT EXISTS achievements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  type TEXT NOT NULL,  -- 'first_login' | 'master_10' | 'master_100' | 'streak_7' | etc
+  name TEXT NOT NULL,
+  description TEXT,
+  unlocked_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- SMTP 默认配置
+INSERT OR IGNORE INTO sys_config (key, value) VALUES
+  ('smtp_host', ''),
+  ('smtp_port', '587'),
+  ('smtp_user', ''),
+  ('smtp_password', ''),
+  ('smtp_from', ''),
+  ('smtp_secure', 'false');
 
 -- 默认管理员 (用户名: admin, 密码: admin123)
 INSERT OR IGNORE INTO users (username, email, password_hash, role) VALUES

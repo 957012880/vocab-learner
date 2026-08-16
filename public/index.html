@@ -36,6 +36,7 @@
     <div id="nav-user" class="nav-user hidden">
       <span id="nav-username" class="nav-username"></span>
       <span id="nav-role" class="badge badge-admin hidden">管理员</span>
+      <a class="btn btn-ghost btn-sm" href="/profile/">个人中心</a>
       <button class="btn btn-ghost btn-sm" onclick="logout()">退出</button>
     </div>
     <button id="nav-login-btn" class="btn btn-primary btn-sm" onclick="showAuthModal('login')">登录</button>
@@ -124,6 +125,9 @@
       <input type="password" class="input" id="login-password" placeholder="密码" required>
       <div id="cf-turnstile-login" class="cf-turnstile"></div>
       <button type="submit" id="login-btn" class="btn btn-primary btn-block">登录</button>
+      <div style="text-align:right;margin-top:4px;">
+        <a href="javascript:void(0)" onclick="showForgotModal()" style="font-size:13px;color:var(--primary);text-decoration:none;">忘记密码？</a>
+      </div>
     </form>
     <form id="register-form" class="auth-form hidden" onsubmit="doRegister(event)">
       <input type="text" class="input" id="reg-username" placeholder="用户名 (3-20字符)" required minlength="3" maxlength="20">
@@ -150,6 +154,21 @@
     </div>
     <div id="import-error" class="auth-error hidden"></div>
     <div id="import-loading" class="import-loading hidden">导入中…</div>
+  </div>
+</div>
+
+<!-- ============ 忘记密码弹窗 ============ -->
+<div id="forgot-modal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeForgotModal()"></div>
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeForgotModal()">✕</button>
+    <h3 class="modal-h">重置密码</h3>
+    <form id="forgot-form" class="auth-form" onsubmit="doForgotPassword(event)">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">输入用户名或邮箱，我们将发送验证码到您的邮箱。</p>
+      <input type="text" class="input" id="forgot-identifier" placeholder="用户名或邮箱" required>
+      <button type="submit" id="forgot-btn" class="btn btn-primary btn-block">发送验证码</button>
+    </form>
+    <div id="forgot-error" class="auth-error hidden"></div>
   </div>
 </div>
 
