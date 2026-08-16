@@ -93,22 +93,21 @@ function renderTurnstile(tab) {
   doRender();
 
   function doRender() {
-      try {
-        TS[key] = window.turnstile.render(el, {
-          sitekey: String(TS.siteKey) || '0x0000000000000000000000',
-          theme: 'light',
-          callback: (token) => {
-            console.log('[Turnstile] Token received:', token ? '✅' : '❌');
-          },
-          'expired-callback': () => {
-            console.log('[Turnstile] Widget expired, resetting');
-            if (TS[key]) try { window.turnstile.reset(TS[key]); } catch {}
-            TS[key] = null;
-          },
-        });
-      } catch (e) {
-        console.error('[Turnstile] Render error:', e);
-      }
+    try {
+      TS[key] = window.turnstile.render(el, {
+        sitekey: String(TS.siteKey) || '0x0000000000000000000000',
+        theme: 'light',
+        callback: (token) => {
+          console.log('[Turnstile] Token received:', token ? '✅' : '❌');
+        },
+        'expired-callback': () => {
+          console.log('[Turnstile] Widget expired, resetting');
+          if (TS[key]) try { window.turnstile.reset(TS[key]); } catch {}
+          TS[key] = null;
+        },
+      });
+    } catch (e) {
+      console.error('[Turnstile] Render error:', e);
     }
   }
 }
