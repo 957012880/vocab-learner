@@ -179,3 +179,25 @@ input, textarea { font-family: inherit; }
   .word-text { font-size: 16px; }
   .book-detail-title { font-size: 18px; }
 }
+
+/* ======== 站点公告栏 ======== */
+.announcement-bar {
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 10px 16px;
+  font-size: 14px;
+  text-align: center;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ======== 维护模式覆盖层 ======== */
+.maintenance-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+}
+.maintenance-box { text-align: center; padding: 40px; }
+.maintenance-emoji { font-size: 64px; margin-bottom: 16px; }
+.maintenance-box h2 { font-size: 24px; margin: 0 0 8px; }
+.maintenance-box p { color: var(--text-muted); font-size: 15px; }

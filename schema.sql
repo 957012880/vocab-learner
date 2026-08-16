@@ -63,6 +63,22 @@ CREATE INDEX IF NOT EXISTS idx_words_book ON words(book_slug);
 CREATE INDEX IF NOT EXISTS idx_status_user ON user_word_status(user_id);
 CREATE INDEX IF NOT EXISTS idx_status_word ON user_word_status(word_slug);
 
+-- 系统配置（管理后台可编辑的站点设置）
+CREATE TABLE IF NOT EXISTS sys_config (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT DEFAULT (datetime('now')),
+  updated_by INTEGER
+);
+
+-- 默认配置项
+INSERT OR IGNORE INTO sys_config (key, value) VALUES
+  ('site_name', '单词书库'),
+  ('allow_register', '1'),         -- 1=允许注册 0=关闭注册
+  ('maintenance_mode', '0'),       -- 1=维护模式(仅管理员可访问) 0=正常
+  ('guest_browse', '1'),           -- 1=允许游客浏览 0=必须登录
+  ('announcement', '');            -- 公告文本(空=不显示)
+
 -- 默认管理员 (用户名: admin, 密码: admin123)
 INSERT OR IGNORE INTO users (username, email, password_hash, role) VALUES
   ('admin', 'admin@vocab.local', 'bz69R7DWRysZbI0_YJjXeg:YlJeDRDk5XfNNKYOaoF71XwHujNMKMm53y8gxB-1HG0', 'admin');

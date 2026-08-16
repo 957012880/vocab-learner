@@ -8,9 +8,10 @@ const App = {
   isGuest: false,
   isAdmin: false,
   books: [],
-  book: null,            // 当前词书 { slug, name, total, words:[{slug,word,pos,phonetic_us,phonetic_uk,meaning,example,status}] }
+  book: null,            // 当前词书 { slug, name, total, words:[...] }
   wordTab: 'all',        // all | mastered | unknown
   revealed: new Set(),   // 当前已展开释义的 word slug
+  config: { siteName: '单词书库', allowRegister: true, maintenanceMode: false, guestBrowse: true, announcement: '' },
 };
 
 // ---------------- 全局错误提示（避免点击“毫无反应”却无提示） ----------------
@@ -30,22 +31,64 @@ const TS = { enabled: false, siteKey: '', loginWidget: null, regWidget: null };
 async function loadConfig() {
   try {
     const res = await API.config();
-    if (res.ok) { TS.enabled = !!res.data.turnstileEnabled; TS.siteKey = res.data.turnstileSiteKey || ''; }
+    if (res.ok) {
+      TS.enabled = !!res.data.turnstileEnabled;
+      TS.siteKey = res.data.turnstileSiteKey || '';
+      App.config = {
+        siteName: res.data.siteName || '单词书库',
+        allowRegister: res.data.allowRegister !== false,
+        maintenanceMode: !!res.data.maintenanceMode,
+        guestBrowse: res.data.guestBrowse !== false,
+        announcement: res.data.announcement || '',
+      };
+      applyConfig();
+    }
   } catch { /* 配置缺失不阻塞页面 */ }
 }
+function applyConfig() {
+  const c = App.config;
+  // 站点名称
+  document.title = `${c.siteName} | Vocab Learner`;
+  document.querySelectorAll('.nav-title').forEach(el => el.textContent = c.siteName);
+  document.querySelectorAll('.hero-title').forEach(el => el.textContent = `${c.siteName} 📖`);
+  // 公告
+  const ann = document.getElementById('announcement-bar');
+  if (ann) { ann.textContent = c.announcement || ''; ann.classList.toggle('hidden', !c.announcement); }
+  // 维护模式（非管理员看到维护提示）
+  if (c.maintenanceMode && !App.isAdmin) {
+    document.getElementById('maintenance-overlay')?.classList.remove('hidden');
+  } else {
+    document.getElementById('maintenance-overlay')?.classList.add('hidden');
+  }
+  // 是否允许注册
+  const regBtn = document.querySelector('.auth-tab[data-auth="register"]');
+  if (regBtn) regBtn.classList.toggle('hidden', !c.allowRegister);
+}
 function renderTurnstile(tab) {
-  if (!TS.enabled || !window.turnstile) return;
+  if (!TS.enabled) return;
   const key = tab === 'login' ? 'loginWidget' : 'regWidget';
   const container = tab === 'login' ? 'cf-turnstile-login' : 'cf-turnstile-register';
   const el = document.getElementById(container);
   if (!el) return;
+  // 已渲染过则 reset 重用
   if (TS[key]) { try { window.turnstile.reset(TS[key]); } catch {} return; }
-  TS[key] = window.turnstile.render(el, {
-    sitekey: TS.siteKey,
-    theme: 'light',
-    callback: () => {},           // 校验通过回调
-    'expired-callback': () => { if (TS[key]) try { window.turnstile.reset(TS[key]); } catch {} },
-  });
+  // Turnstile 脚本是 async defer 加载，可能还没就绪 —— 轮询等待
+  let tries = 0;
+  const tryRender = () => {
+    if (window.turnstile) {
+      try {
+        TS[key] = window.turnstile.render(el, {
+          sitekey: TS.siteKey,
+          theme: 'light',
+          callback: () => {},
+          'expired-callback': () => { if (TS[key]) try { window.turnstile.reset(TS[key]); } catch {} },
+        });
+      } catch (e) { console.warn('Turnstile render error:', e); }
+    } else if (tries++ < 30) {
+      setTimeout(tryRender, 200);  // 每 200ms 重试，最多 6 秒
+    }
+  };
+  tryRender();
 }
 function getTurnstileToken(tab) {
   if (!TS.enabled || !window.turnstile) return '';
@@ -82,7 +125,10 @@ function showWelcome() { document.getElementById('welcome-section')?.classList.r
 function showViewBooks() { document.getElementById('view-books').classList.remove('hidden'); document.getElementById('view-book').classList.add('hidden'); }
 function showViewBook() { document.getElementById('view-books').classList.add('hidden'); document.getElementById('view-book').classList.remove('hidden'); }
 
-function startGuestMode() { App.isGuest = true; showApp(); loadBooks(); showToast('游客模式：可浏览词书，但进度不保存（建议注册）'); }
+function startGuestMode() {
+  if (!App.config.guestBrowse) return showToast('管理员已关闭游客浏览，请先登录');
+  App.isGuest = true; showApp(); loadBooks(); showToast('游客模式：可浏览词书，但进度不保存（建议注册）');
+}
 
 // ---------------- 词书列表 ----------------
 async function loadBooks() {
@@ -501,7 +547,10 @@ async function doImport() {
 }
 
 // ---------------- 认证 ----------------
-function showAuthModal(tab) { document.getElementById('auth-modal').classList.remove('hidden'); switchAuthTab(tab || 'login'); }
+function showAuthModal(tab) {
+  document.getElementById('auth-modal').classList.remove('hidden');
+  switchAuthTab(tab || 'login');
+}
 function closeAuthModal() { document.getElementById('auth-modal').classList.add('hidden'); resetTurnstile(); }
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
@@ -564,8 +613,18 @@ async function init() {
   await loadConfig();
   if (API.isLoggedIn()) {
     const res = await API.me();
-    if (res.ok) { onLoggedIn(res.data.user); return; }
+    if (res.ok) {
+      onLoggedIn(res.data.user);
+      // 管理员登录后也要应用配置（维护模式覆盖等）
+      applyConfig();
+      return;
+    }
     API.clearAuth();
+  }
+  // 维护模式：非管理员看到维护页
+  if (App.config.maintenanceMode) {
+    document.getElementById('maintenance-overlay')?.classList.remove('hidden');
+    return;
   }
   showWelcome();
 }

@@ -29,6 +29,7 @@ async function init() {
   Admin.user = res.data.user;
   document.getElementById('admin-name').textContent = '管理员：' + Admin.user.username;
   loadMembers();
+  loadSettings();
 }
 
 async function loadMembers() {
@@ -113,6 +114,43 @@ function resetPwd(id, name) {
 function logout() {
   API.clearAuth();
   location.href = '/';
+}
+
+// ---------- 网站设置 ----------
+async function loadSettings() {
+  const res = await API.getSettings();
+  document.getElementById('settings-loading').classList.add('hidden');
+  if (!res.ok) {
+    document.getElementById('settings-error').textContent = res.data.error || '加载设置失败';
+    document.getElementById('settings-error').classList.remove('hidden');
+    return;
+  }
+  const s = res.data.settings || {};
+  document.getElementById('set-site-name').value = s.site_name || '';
+  document.getElementById('set-allow-register').value = s.allow_register ?? '1';
+  document.getElementById('set-guest-browse').value = s.guest_browse ?? '1';
+  document.getElementById('set-maintenance').value = s.maintenance_mode ?? '0';
+  document.getElementById('set-announcement').value = s.announcement || '';
+  document.getElementById('settings-form').classList.remove('hidden');
+}
+
+async function saveSettings() {
+  const errEl = document.getElementById('settings-error');
+  errEl.classList.add('hidden');
+  const settings = {
+    site_name: document.getElementById('set-site-name').value.trim(),
+    allow_register: document.getElementById('set-allow-register').value,
+    guest_browse: document.getElementById('set-guest-browse').value,
+    maintenance_mode: document.getElementById('set-maintenance').value,
+    announcement: document.getElementById('set-announcement').value.trim(),
+  };
+  const res = await API.updateSettings(settings);
+  if (res.ok) {
+    showToast('设置已保存');
+  } else {
+    errEl.textContent = res.data.error || '保存失败';
+    errEl.classList.remove('hidden');
+  }
 }
 
 window.addEventListener('DOMContentLoaded', init);

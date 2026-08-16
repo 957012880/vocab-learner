@@ -63,4 +63,8 @@ const API = {
   resetMemberPassword(id, password) {
     return this.request(`/api/admin/members/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ password }) });
   },
+  getSettings() { return this.request('/api/admin/settings'); },
+  updateSettings(settings) {
+    return this.request('/api/admin/settings', { method: 'POST', body: JSON.stringify(settings) });
+  },
 };

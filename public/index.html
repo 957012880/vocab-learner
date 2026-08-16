@@ -10,8 +10,20 @@
 </head>
 <body>
 
-<!-- ============ 全局错误提示（任何 JS / 接口异常都会显示在这里，避免静默失败） ============ -->
+<!-- ============ 全局错误提示 ============ -->
 <div id="error-banner" class="error-banner hidden"></div>
+
+<!-- ============ 站点公告 ============ -->
+<div id="announcement-bar" class="announcement-bar hidden"></div>
+
+<!-- ============ 维护模式覆盖层 ============ -->
+<div id="maintenance-overlay" class="maintenance-overlay hidden">
+  <div class="maintenance-box">
+    <div class="maintenance-emoji">🔧</div>
+    <h2>站点维护中</h2>
+    <p>网站正在维护，请稍后再来。</p>
+  </div>
+</div>
 
 <!-- ============ 顶部导航 ============ -->
 <nav class="navbar">

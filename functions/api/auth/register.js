@@ -11,6 +11,12 @@ export async function onRequestPost({ request, env }) {
   if (password.length < 6) return json({ error: '密码至少 6 位' }, 400);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: '邮箱格式不正确' }, 400);
 
+  // 检查是否关闭了注册
+  try {
+    const cfg = await env.DB.prepare("SELECT value FROM sys_config WHERE key = 'allow_register'").first();
+    if (cfg && cfg.value === '0') return json({ error: '管理员已关闭新用户注册，请联系管理员创建账号' }, 403);
+  } catch { /* sys_config 表不存在时忽略 */ }
+
   // Cloudflare Turnstile 人机验证（开启后强制）
   const ip = request.headers.get('cf-connecting-ip');
   if (!(await verifyTurnstile(turnstileToken, env, ip))) {

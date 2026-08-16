@@ -26,6 +26,12 @@
     .add-form .full { grid-column: 1 / -1; }
     .add-form .actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; }
     @media (max-width: 560px) { .add-form { grid-template-columns: 1fr; } }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .setting-row { display: flex; flex-direction: column; gap: 6px; }
+    .setting-full { grid-column: 1 / -1; }
+    .setting-label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+    .settings-actions { margin-top: 16px; display: flex; justify-content: flex-end; }
+    @media (max-width: 560px) { .settings-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -83,6 +89,49 @@
       <tbody id="members-body"></tbody>
     </table>
     <div id="members-empty" class="empty-hint hidden">暂无用户</div>
+  </div>
+
+  <!-- 网站设置面板 -->
+  <div class="panel" id="settings-panel">
+    <h2>网站设置</h2>
+    <div id="settings-loading" class="empty-hint">加载中…</div>
+    <div id="settings-form" class="hidden">
+      <div class="settings-grid">
+        <label class="setting-row">
+          <span class="setting-label">站点名称</span>
+          <input type="text" class="input" id="set-site-name" placeholder="单词书库">
+        </label>
+        <label class="setting-row">
+          <span class="setting-label">开放注册</span>
+          <select class="input" id="set-allow-register">
+            <option value="1">允许新用户注册</option>
+            <option value="0">关闭注册（仅管理员可建用户）</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span class="setting-label">游客浏览</span>
+          <select class="input" id="set-guest-browse">
+            <option value="1">允许游客浏览词书</option>
+            <option value="0">必须登录才能浏览</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span class="setting-label">维护模式</span>
+          <select class="input" id="set-maintenance">
+            <option value="0">正常运行</option>
+            <option value="1">维护模式（仅管理员可访问）</option>
+          </select>
+        </label>
+        <label class="setting-row setting-full">
+          <span class="setting-label">站点公告</span>
+          <textarea class="input" id="set-announcement" rows="2" placeholder="留空则不显示公告"></textarea>
+        </label>
+      </div>
+      <div class="settings-actions">
+        <button class="btn btn-primary" onclick="Admin.saveSettings()">保存设置</button>
+      </div>
+      <div class="auth-error hidden" id="settings-error"></div>
+    </div>
   </div>
 </div>
 
